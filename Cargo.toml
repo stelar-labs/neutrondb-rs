@@ -1,9 +1,12 @@
 [package]
 name = "neutrondb"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT"
+description = "Rust implementation of NeutronDB, a Log-Structured Merge-tree Key-Value Store using Stellar Notation to Serialize and Encode Data."
+repository = "https://github.com/seg-software/neutrondb-rs"
+readme = "README.md"
 
 [dependencies]
-stellar-notation = "0.5.0"
+# stellar-notation = "0.7.0"
+stellar-notation = { path = "../stellar-notation-rs" }
