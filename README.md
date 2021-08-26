@@ -3,15 +3,37 @@ Rust implementation of NeutronDB, a Log-Structured Merge-tree Key-Value Store us
 
 ## Usage
 ```
-neutrondb = "0.2.0"
+neutrondb = "0.9.0"
+stellar-notation = "0.9.0"
 ```
 
 ## Functions
 
+### declarations
+```
+use neutrondb;
+use stellar_notation::StellarObject;
+use stellar_notation::StellarValue;
+```
 ### store
-### insert
+```
+let mut store = neutrondb::store("my_store").unwrap();
+```
+
+### put
+```
+let key: String = String::from("key_1");
+let object: StellarObject = StellarObject(key, value);
+store.put(object).unwrap();
+```
+
 ### get
 ### delete
 
-## Issues
-- Improper indexing of lists by Stellar Notation Library on 32-bit Systems.
+## Future Topics
+- Read/Write Performance
+- Compression
+- Error Correction
+
+## Contribution
+Any interested party can contact me through email at itsmereystar@protonmail.com
