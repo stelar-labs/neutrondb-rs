@@ -23,12 +23,16 @@ let mut store = neutrondb::store("my_store").unwrap();
 ### put
 ```
 let key: String = String::from("key_1");
+let value: StellarValue = StellarValue::StringType(String::from("value_1"));
 let object: StellarObject = StellarObject(key, value);
 store.put(object).unwrap();
 ```
 
 ### get
 ### delete
+
+## Intermediate Topics
+- Flush & Compact in accordance with level capacity
 
 ## Future Topics
 - Read/Write Performance

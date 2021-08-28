@@ -5,7 +5,7 @@ mod bloom_filter;
 mod compaction;
 mod initialization;
 mod flush;
-mod store;
+pub mod store;
 
 pub fn store(name: &str) -> Result<store::Store, Box<dyn Error>> {
     
