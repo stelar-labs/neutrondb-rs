@@ -44,6 +44,8 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
 
                 let mut level_objects: Vec<StellarObject> = level_file_objects_vec.concat();
 
+                let initial_grave_size = store.grave.len();
+
                 let grave_list = store.grave.clone();
 
                 for i in grave_list {
@@ -66,13 +68,13 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
                     }
                 }
 
-                if store.grave.len() > 0 {
+                if store.grave.len() != initial_grave_size {
 
                     let grave_objects: Vec<StellarObject> = store.grave.iter()
                     .map(|x| StellarObject(x.to_string(), StellarValue::UInt8(0)))
                     .collect();
 
-                    let grave_serialized = serialize_stellar_objects(&grave_objects);
+                    let grave_serialized = serialize_stellar_objects(grave_objects);
 
                     let grave_path = format!("{}/grave.stellar", &store_path);
 
@@ -80,10 +82,7 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
 
                 }
 
-                level_objects.sort_by_key(|x| x.clone().0);
-                level_objects.dedup_by_key(|x| x.clone().0);
-
-                let objects_serialized: Vec<u8> = serialize_stellar_objects(&level_objects);
+                let objects_serialized: Vec<u8> = serialize_stellar_objects(level_objects.clone());
 
                 let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
 
@@ -110,7 +109,7 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
 
                 deserialize_bloom_filters.push(new_bloom_filter_object);
 
-                let new_bloom_filters = serialize_stellar_objects(&deserialize_bloom_filters);
+                let new_bloom_filters = serialize_stellar_objects(deserialize_bloom_filters);
 
                 fs::write(&bloom_filters_path, &new_bloom_filters)?;
 
@@ -126,7 +125,7 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
 
                 deserialize_table_locations.push(new_table_location_object);
 
-                let new_table_locations = serialize_stellar_objects(&deserialize_table_locations);
+                let new_table_locations = serialize_stellar_objects(deserialize_table_locations);
 
                 fs::write(&table_locations_path, &new_table_locations)?;
 

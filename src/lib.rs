@@ -27,13 +27,13 @@ impl Store {
 
     pub fn put(&mut self, object: StellarObject) -> Result<(), Box<dyn Error>> {
 
-        let store_path = format!("./neutrondb/{}", self.name);
-
         self.cache.push(object.clone());
+
+        let store_path = format!("./neutrondb/{}", self.name);
 
         let cache_path = format!("{}/cache.stellar", &store_path);
 
-        let cache_serielized = serialize_stellar_objects(&self.cache);
+        let cache_serielized = serialize_stellar_objects(self.cache.clone());
 
         fs::write(&cache_path, &cache_serielized)?;
 
@@ -66,7 +66,7 @@ impl Store {
                     .map(|x| StellarObject(x.to_string(), StellarValue::UInt8(0)))
                     .collect();
 
-                let grave_serialized = serialize_stellar_objects(&grave_objects);
+                let grave_serialized = serialize_stellar_objects(grave_objects);
 
                 let grave_path = format!("{}/grave.stellar", &store_path);
 
@@ -86,7 +86,11 @@ impl Store {
 
         let mut result: Option<StellarObject> = None;
 
-        let cache_query = self.cache.iter()
+        let mut cache = self.cache.clone();
+        
+        cache.reverse();
+
+        let cache_query = cache.iter()
             .find(|x| &x.0 == &key);
 
         match cache_query {
@@ -141,7 +145,7 @@ impl Store {
             .map(|x| StellarObject(x.to_string(), StellarValue::UInt8(0)))
             .collect();
 
-        let grave_serialized = serialize_stellar_objects(&grave_objects);
+        let grave_serialized = serialize_stellar_objects(grave_objects);
 
         let grave_path = format!("./neutrondb/{}/grave.stellar", &self.name);
 
