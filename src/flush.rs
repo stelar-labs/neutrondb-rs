@@ -6,13 +6,15 @@ use std::path::Path;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use stellar_notation::StellarObject;
-use stellar_notation::StellarValue;
+use stellar_notation::{
+    StellarObject, StellarValue,
+    serialize_stellar_objects, deserialize_stellar_objects
+};
 
-use crate::store;
+use crate::Store;
 use crate::bloom_filter;
 
-pub fn perform(store: store::Store) -> Result<(), Box<dyn Error>> {
+pub fn perform(store: Store) -> Result<(), Box<dyn Error>> {
 
     let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 
@@ -32,44 +34,55 @@ pub fn perform(store: store::Store) -> Result<(), Box<dyn Error>> {
 
     fs::write(&table_path, &cache_bytes)?;
 
-    let empty_bloom_filter: Vec<u8> = vec![0; 32];
-    // println!(" * empty_bloom_filter: {:?}", empty_bloom_filter);
+    // ADD BLOOM FILTER
+    let new_bloom_filter = store.cache.iter()
+        .fold(vec![0; 32], |acc, x| bloom_filter::insert(acc, &x.0));
 
-    let new_bloom_filter = store.cache.iter().fold(empty_bloom_filter, |acc, x| bloom_filter::insert(acc, &x.0));
-    // println!(" * new_bloom_filter: {:?}", new_bloom_filter);
-
-    let new_bloom_filter_object = StellarObject(current_time.to_string(), StellarValue::ByteType(new_bloom_filter.clone()));
+    let new_bloom_filter_object = StellarObject(current_time.to_string(), StellarValue::Bytes(new_bloom_filter.clone()));
 
     let bloom_filters_path = format!("{}/bloom_filters.stellar", &store_path);
 
     if Path::new(&bloom_filters_path).is_file() {
 
-        let current_bloom_filters = fs::read(&bloom_filters_path)?;
-        let new_bloom_filters = stellar_notation::push(&current_bloom_filters, new_bloom_filter_object);
+        let bloom_filters = fs::read(&bloom_filters_path)?;
+
+        let mut deserialize_bloom_filters = deserialize_stellar_objects(&bloom_filters);
+
+        deserialize_bloom_filters.push(new_bloom_filter_object);
+
+        let new_bloom_filters = serialize_stellar_objects(&deserialize_bloom_filters);
+
         fs::write(&bloom_filters_path, &new_bloom_filters)?;
     
     } else {
 
-        let serialized_bloom_filters = stellar_notation::serialize(new_bloom_filter_object);
-        let new_bloom_filters = stellar_notation::encode(&vec![serialized_bloom_filters]);
+        let new_bloom_filters = serialize_stellar_objects(vec![new_bloom_filter_object]);
+        
         fs::write(&bloom_filters_path, &new_bloom_filters)?;
 
     }
 
-    let new_table_location_object = StellarObject(current_time.to_string(), StellarValue::IntegerType(1));
+    // ADD TABLE LOCATION
+    let new_table_location_object = StellarObject(current_time.to_string(), StellarValue::UInt8(1));
 
     let table_locations_path = format!("{}/table_locations.stellar", &store_path);
 
     if Path::new(&table_locations_path).is_file() {
 
-        let current_table_locations = fs::read(&table_locations_path)?;
-        let new_table_locations = stellar_notation::push(&current_table_locations, new_table_location_object);
+        let table_locations = fs::read(&table_locations_path)?;
+
+        let mut deserialize_table_locations = deserialize_stellar_objects(&table_locations);
+
+        deserialize_table_locations.push(new_table_location_object);
+
+        let new_table_locations = serialize_stellar_objects(&deserialize_table_locations);
+
         fs::write(&table_locations_path, &new_table_locations)?;
     
     } else {
 
-        let serialized_table_location = stellar_notation::serialize(new_table_location_object);
-        let new_table_locations = stellar_notation::encode(&vec![serialized_table_location]);
+        let new_table_locations = serialize_stellar_objects(vec![new_table_location_object]);
+        
         fs::write(&table_locations_path, &new_table_locations)?;
         
     }

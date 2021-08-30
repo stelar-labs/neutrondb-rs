@@ -4,10 +4,12 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-use stellar_notation::StellarObject;
-use stellar_notation::StellarValue;
+use stellar_notation::{
+    StellarObject, StellarValue,
+    deserialize_stellar_objects
+};
 
-use crate::store::Table;
+use crate::Table;
 
 pub fn store(name: &str) -> Result<(), Box<dyn Error>> {
 
@@ -33,11 +35,7 @@ pub fn cache(name: &str) -> Vec<StellarObject> {
         
         let cache_bytes = fs::read(&cache_path).unwrap();
 
-        let cache_objects = stellar_notation::decode(&cache_bytes);
-
-        cache = cache_objects.iter()
-            .map(|x| stellar_notation::deserialize(x).unwrap())
-            .collect();
+        cache = deserialize_stellar_objects(&cache_bytes);
 
     }
 
@@ -57,10 +55,10 @@ pub fn grave(name: &str) -> Vec<String> {
 
         let grave_bytes = fs::read(&grave_path).unwrap();
 
-        let grave_objects = stellar_notation::decode(&grave_bytes);
+        let grave_objects = deserialize_stellar_objects(&grave_bytes);
 
         grave = grave_objects.iter()
-            .map(|x| stellar_notation::deserialize(x).unwrap().0)
+            .map(|x| x.0.to_string())
             .collect();
 
     }
@@ -81,35 +79,42 @@ pub fn tables(name: &str) ->  Vec<Table> {
 
         let bloom_filters_path = format!("{}/bloom_filters.stellar", &store_path);
 
-        let bloom_filters_bytes = fs::read(&bloom_filters_path).unwrap();
-        
-        let table_locations_bytes = fs::read(&table_locations_path).unwrap();
+        let bloom_filters = fs::read(&bloom_filters_path).unwrap();
 
-        let table_locations_objects = stellar_notation::decode(&table_locations_bytes);
+        let bloom_filters_objects = deserialize_stellar_objects(&bloom_filters);
+        
+        let table_locations = fs::read(&table_locations_path).unwrap();
+
+        let table_locations_objects = deserialize_stellar_objects(&table_locations);
 
         table_locations_objects.iter()
-            .map(|x| stellar_notation::deserialize(x).unwrap())
             .for_each(|x| {
 
-                match stellar_notation::find(&bloom_filters_bytes, &x.0) {
+                let table_name: String = x.0.to_string();
+
+                let bloom_filter_query = bloom_filters_objects.iter()
+                    .find(|y| x.0 == y.0);
+
+                match bloom_filter_query {
                     
                     Some(res) => {
 
                         let mut level: u8 = 0;
 
                         match x.1 {
-                            StellarValue::IntegerType(r) => level = r as u8,
+                            StellarValue::UInt8(r) => level = r as u8,
                             _ => ()
                         }
 
                         let mut bloom_filter: Vec<u8> = Vec::new();
 
-                        match res.1 {
-                            StellarValue::ByteType(r) => bloom_filter = r,
+                        match &res.1 {
+                            StellarValue::Bytes(r) => bloom_filter = r.clone(),
                             _ => ()
                         }
 
-                        let table = Table(x.0, level, bloom_filter);
+                        let table = Table(table_name, level, bloom_filter);
+
                         tables.push(table);
                         
                     },
