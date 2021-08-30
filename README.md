@@ -37,14 +37,14 @@ let value: StellarValue = StellarValue::String(String::from("value_1"));
 
 let object: StellarObject = StellarObject(key, value);
 
-store.put(object).unwrap();
+my_store.put(object).unwrap();
 
 ```
 
 ### get
 ```
 
-let object: StellarObject = store.get("key_1").unwrap();
+let object: StellarObject = my_store.get("key_1").unwrap();
 
 let value: StellarValue = object.1;
 
@@ -58,7 +58,7 @@ match value {
 ### delete
 ```
 
-store.delete("key_1").unwrap();
+my_store.delete("key_1").unwrap();
 
 ```
 
