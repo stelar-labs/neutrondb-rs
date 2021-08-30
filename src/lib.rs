@@ -82,9 +82,9 @@ impl Store {
         
     }
 
-    pub fn get(&self, key: &str) -> Result<Option<StellarObject>, Box<dyn Error>> {
+    pub fn get(&self, key: &str) -> Result<Option<StellarValue>, Box<dyn Error>> {
 
-        let mut result: Option<StellarObject> = None;
+        let mut result: Option<StellarValue> = None;
 
         let mut cache = self.cache.clone();
         
@@ -95,7 +95,7 @@ impl Store {
 
         match cache_query {
 
-            Some(res) => result = Some(res.to_owned()),
+            Some(res) => result = Some(res.1.to_owned()),
 
             None => {
 
@@ -117,7 +117,7 @@ impl Store {
                         match table_query {
 
                             Some(res) => {
-                                result = Some(res.clone());
+                                result = Some(res.1.to_owned());
                                 break
                             },
 

@@ -1,6 +1,6 @@
 [package]
 name = "neutrondb"
-version = "0.9.3"
+version = "0.9.4"
 edition = "2018"
 license = "MIT"
 description = "Rust implementation of NeutronDB, a Log-Structured Merge-tree Key-Value Store serialized as Stellar Notation Objects."
