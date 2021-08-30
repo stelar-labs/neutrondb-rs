@@ -56,7 +56,7 @@ pub fn perform(store: Store) -> Result<(), Box<dyn Error>> {
     
     } else {
 
-        let new_bloom_filters = serialize_stellar_objects(vec![new_bloom_filter_object]);
+        let new_bloom_filters = serialize_stellar_objects(&vec![new_bloom_filter_object]);
         
         fs::write(&bloom_filters_path, &new_bloom_filters)?;
 
@@ -81,7 +81,7 @@ pub fn perform(store: Store) -> Result<(), Box<dyn Error>> {
     
     } else {
 
-        let new_table_locations = serialize_stellar_objects(vec![new_table_location_object]);
+        let new_table_locations = serialize_stellar_objects(&vec![new_table_location_object]);
         
         fs::write(&table_locations_path, &new_table_locations)?;
         
