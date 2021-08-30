@@ -3,13 +3,12 @@ Rust implementation of NeutronDB, a Log-Structured Merge-tree Key-Value Store se
 
 ## Usage
 ```
-neutrondb = "0.9.1"
+
+neutrondb = "0.9.2"
 stellar-notation = "0.9.3"
+
 ```
 
-## Functions
-
-### declarations
 ```
 
 use neutrondb::store;
@@ -19,6 +18,9 @@ use stellar_notation::{
 };
 
 ```
+
+## Functions
+
 ### store
 ```
 
