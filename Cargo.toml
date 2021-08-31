@@ -8,7 +8,7 @@ repository = "https://github.com/seg-software/neutrondb-rs"
 readme = "README.md"
 
 [dependencies]
-stellar-notation = "0.9.6"
+stellar-notation = "0.9.7"
 blake3 = "1.0.0"
 sha2 = "0.9.5"
 sha3 = "0.9.1"

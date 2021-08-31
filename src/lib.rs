@@ -158,6 +158,34 @@ impl Store {
         
     }
 
+    pub fn get_all(&self) -> Result<Vec<StellarObject>, Box<dyn Error>> {
+
+        let store_path = format!("./neutrondb/{}", self.name);
+
+        let mut objects = self.cache.clone();
+        
+        objects.reverse();
+
+        for table in &self.tables {
+
+            let table_path = format!("{}/level_{}/{}.stellar", &store_path, table.1, table.0);
+
+            let table_bytes = fs::read(&table_path)?;
+
+            let table_objects = byte_decode::list(&table_bytes);
+
+            objects = [objects, table_objects].concat();
+
+        }
+
+        objects.sort_by_key(|x| x.0.to_string());
+
+        objects.dedup_by_key(|x| x.0.to_string());
+
+        return Ok(objects);
+
+    }
+
 }
 
 pub fn store(name: &str) -> Result<Store, Box<dyn Error>> {
