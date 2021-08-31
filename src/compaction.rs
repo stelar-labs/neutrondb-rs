@@ -5,8 +5,9 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use stellar_notation::{
-    StellarObject, StellarValue,
-    serialize_stellar_objects, deserialize_stellar_objects
+    StellarObject,
+    StellarValue,
+    bytes::{encode, decode}
 };
 
 use crate::Store;
@@ -39,7 +40,7 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
 
                 let level_file_objects_vec: Vec<Vec<StellarObject>> = level_files.iter()
                     .map(|x| fs::read(x).unwrap())
-                    .map(|x| deserialize_stellar_objects(&x))
+                    .map(|x| decode::list(&x))
                     .collect();
 
                 let mut level_objects: Vec<StellarObject> = level_file_objects_vec.concat();
@@ -74,7 +75,7 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
                     .map(|x| StellarObject(x.to_string(), StellarValue::UInt8(0)))
                     .collect();
 
-                    let grave_serialized = serialize_stellar_objects(grave_objects);
+                    let grave_serialized = encode::list(grave_objects);
 
                     let grave_path = format!("{}/grave.stellar", &store_path);
 
@@ -82,7 +83,7 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
 
                 }
 
-                let objects_serialized: Vec<u8> = serialize_stellar_objects(level_objects.clone());
+                let objects_serialized: Vec<u8> = encode::list(level_objects.clone());
 
                 let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
 
@@ -105,11 +106,11 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
 
                 let bloom_filters = fs::read(&bloom_filters_path)?;
 
-                let mut deserialize_bloom_filters = deserialize_stellar_objects(&bloom_filters);
+                let mut deserialize_bloom_filters = decode::list(&bloom_filters);
 
                 deserialize_bloom_filters.push(new_bloom_filter_object);
 
-                let new_bloom_filters = serialize_stellar_objects(deserialize_bloom_filters);
+                let new_bloom_filters = encode::list(deserialize_bloom_filters);
 
                 fs::write(&bloom_filters_path, &new_bloom_filters)?;
 
@@ -121,11 +122,11 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
 
                 let table_locations = fs::read(&table_locations_path)?;
 
-                let mut deserialize_table_locations = deserialize_stellar_objects(&table_locations);
+                let mut deserialize_table_locations = decode::list(&table_locations);
 
                 deserialize_table_locations.push(new_table_location_object);
 
-                let new_table_locations = serialize_stellar_objects(deserialize_table_locations);
+                let new_table_locations = encode::list(deserialize_table_locations);
 
                 fs::write(&table_locations_path, &new_table_locations)?;
 

@@ -8,8 +8,9 @@ mod initialization;
 mod flush;
 
 use stellar_notation::{
-    StellarObject, StellarValue,
-    serialize_stellar_objects, deserialize_stellar_objects
+    StellarObject,
+    StellarValue,
+    bytes::{encode, decode}
 };
 
 #[derive(Clone, Debug)]
@@ -33,7 +34,7 @@ impl Store {
 
         let cache_path = format!("{}/cache.stellar", &store_path);
 
-        let cache_serielized = serialize_stellar_objects(self.cache.clone());
+        let cache_serielized = encode::list(self.cache.clone());
 
         fs::write(&cache_path, &cache_serielized)?;
 
@@ -66,7 +67,7 @@ impl Store {
                     .map(|x| StellarObject(x.to_string(), StellarValue::UInt8(0)))
                     .collect();
 
-                let grave_serialized = serialize_stellar_objects(grave_objects);
+                let grave_serialized = encode::list(grave_objects);
 
                 let grave_path = format!("{}/grave.stellar", &store_path);
 
@@ -109,7 +110,7 @@ impl Store {
 
                         let table_serialized = fs::read(&table_path)?;
 
-                        let table_deserialized = deserialize_stellar_objects(&table_serialized);
+                        let table_deserialized = decode::list(&table_serialized);
 
                         let table_query = table_deserialized.iter()
                             .find(|x| x.0 == key);
@@ -145,7 +146,7 @@ impl Store {
             .map(|x| StellarObject(x.to_string(), StellarValue::UInt8(0)))
             .collect();
 
-        let grave_serialized = serialize_stellar_objects(grave_objects);
+        let grave_serialized = encode::list(grave_objects);
 
         let grave_path = format!("./neutrondb/{}/grave.stellar", &self.name);
 

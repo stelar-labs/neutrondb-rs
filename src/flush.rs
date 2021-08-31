@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use stellar_notation::{
     StellarObject, StellarValue,
-    serialize_stellar_objects, deserialize_stellar_objects
+    bytes::{encode, decode}
 };
 
 use crate::Store;
@@ -46,17 +46,17 @@ pub fn perform(store: Store) -> Result<(), Box<dyn Error>> {
 
         let bloom_filters = fs::read(&bloom_filters_path)?;
 
-        let mut deserialize_bloom_filters = deserialize_stellar_objects(&bloom_filters);
+        let mut deserialize_bloom_filters = decode::list(&bloom_filters);
 
         deserialize_bloom_filters.push(new_bloom_filter_object);
 
-        let new_bloom_filters = serialize_stellar_objects(deserialize_bloom_filters);
+        let new_bloom_filters = encode::list(deserialize_bloom_filters);
 
         fs::write(&bloom_filters_path, &new_bloom_filters)?;
     
     } else {
 
-        let new_bloom_filters = serialize_stellar_objects(vec![new_bloom_filter_object]);
+        let new_bloom_filters = encode::list(vec![new_bloom_filter_object]);
         
         fs::write(&bloom_filters_path, &new_bloom_filters)?;
 
@@ -71,17 +71,17 @@ pub fn perform(store: Store) -> Result<(), Box<dyn Error>> {
 
         let table_locations = fs::read(&table_locations_path)?;
 
-        let mut deserialize_table_locations = deserialize_stellar_objects(&table_locations);
+        let mut deserialize_table_locations = decode::list(&table_locations);
 
         deserialize_table_locations.push(new_table_location_object);
 
-        let new_table_locations = serialize_stellar_objects(deserialize_table_locations);
+        let new_table_locations = encode::list(deserialize_table_locations);
 
         fs::write(&table_locations_path, &new_table_locations)?;
     
     } else {
 
-        let new_table_locations = serialize_stellar_objects(vec![new_table_location_object]);
+        let new_table_locations = encode::list(vec![new_table_location_object]);
         
         fs::write(&table_locations_path, &new_table_locations)?;
         

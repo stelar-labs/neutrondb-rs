@@ -1,6 +1,6 @@
 [package]
 name = "neutrondb"
-version = "0.9.4"
+version = "0.9.5"
 edition = "2018"
 license = "MIT"
 description = "Rust implementation of NeutronDB, a Log-Structured Merge-tree Key-Value Store serialized as Stellar Notation Objects."
@@ -8,7 +8,7 @@ repository = "https://github.com/seg-software/neutrondb-rs"
 readme = "README.md"
 
 [dependencies]
-stellar-notation = "0.9.4"
+stellar-notation = "0.9.5"
 blake3 = "1.0.0"
 sha2 = "0.9.5"
 sha3 = "0.9.1"
