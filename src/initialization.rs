@@ -7,7 +7,7 @@ use std::path::Path;
 use stellar_notation::{
     StellarObject,
     StellarValue,
-    bytes::decode
+    byte_decode
 };
 
 use crate::Table;
@@ -36,7 +36,7 @@ pub fn cache(name: &str) -> Vec<StellarObject> {
         
         let cache_bytes = fs::read(&cache_path).unwrap();
 
-        cache = decode::list(&cache_bytes);
+        cache = byte_decode::list(&cache_bytes);
 
     }
 
@@ -56,7 +56,7 @@ pub fn grave(name: &str) -> Vec<String> {
 
         let grave_bytes = fs::read(&grave_path).unwrap();
 
-        let grave_objects = decode::list(&grave_bytes);
+        let grave_objects = byte_decode::list(&grave_bytes);
 
         grave = grave_objects.iter()
             .map(|x| x.0.to_string())
@@ -82,11 +82,11 @@ pub fn tables(name: &str) ->  Vec<Table> {
 
         let bloom_filters = fs::read(&bloom_filters_path).unwrap();
 
-        let bloom_filters_objects = decode::list(&bloom_filters);
+        let bloom_filters_objects = byte_decode::list(&bloom_filters);
         
         let table_locations = fs::read(&table_locations_path).unwrap();
 
-        let table_locations_objects = decode::list(&table_locations);
+        let table_locations_objects = byte_decode::list(&table_locations);
 
         table_locations_objects.iter()
             .for_each(|x| {
