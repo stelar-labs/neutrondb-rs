@@ -22,7 +22,8 @@ pub struct Store {
     pub name: String,
     pub cache: Vec<StellarObject>,
     pub grave: Vec<String>,
-    pub tables: Vec<Table>
+    pub tables: Vec<Table>,
+    pub perf_mode: bool
 }
 
 impl Store {
@@ -173,7 +174,8 @@ pub fn store(name: &str) -> Result<Store, Box<dyn Error>> {
         name: String::from(name),
         cache: cache,
         grave: grave,
-        tables: tables
+        tables: tables,
+        perf_mode: false
     };
 
     return Ok(store)
