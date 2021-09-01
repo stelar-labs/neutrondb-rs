@@ -89,49 +89,62 @@ impl Store {
 
         let mut result: Option<StellarValue> = None;
 
-        let mut cache = self.cache.clone();
-        
-        cache.reverse();
+        let grave_query = self.grave.iter()
+            .find(|x| x == &key);
 
-        let cache_query = cache.iter()
-            .find(|x| &x.0 == &key);
+        match grave_query {
 
-        match cache_query {
-
-            Some(res) => result = Some(res.1.to_owned()),
+            Some(_) => (),
 
             None => {
 
-                let store_path = format!("./neutrondb/{}", self.name);
+                let mut cache = self.cache.clone();
                 
-                for table in &self.tables {
+                cache.reverse();
 
-                    if bloom_filter::lookup(&table.2, &key) {
+                let cache_query = cache.iter()
+                    .find(|x| &x.0 == &key);
 
-                        let table_path = format!("{}/level_{}/{}.stellar", &store_path, table.1, table.0);
+                match cache_query {
 
-                        let table_serialized = fs::read(&table_path)?;
+                    Some(res) => result = Some(res.1.to_owned()),
 
-                        let table_deserialized = byte_decode::list(&table_serialized);
+                    None => {
 
-                        let table_query = table_deserialized.iter()
-                            .find(|x| x.0 == key);
+                        let store_path = format!("./neutrondb/{}", self.name);
+                        
+                        for table in &self.tables {
 
-                        match table_query {
+                            if bloom_filter::lookup(&table.2, &key) {
 
-                            Some(res) => {
-                                result = Some(res.1.to_owned());
-                                break
-                            },
+                                let table_path = format!("{}/level_{}/{}.stellar", &store_path, table.1, table.0);
 
-                            None => ()
+                                let table_serialized = fs::read(&table_path)?;
+
+                                let table_deserialized = byte_decode::list(&table_serialized);
+
+                                let table_query = table_deserialized.iter()
+                                    .find(|x| x.0 == key);
+
+                                match table_query {
+
+                                    Some(res) => {
+                                        result = Some(res.1.to_owned());
+                                        break
+                                    },
+
+                                    None => ()
+
+                                }
+                            }
 
                         }
-                    }
 
+                    }
                 }
 
             }
+
         }
 
         return Ok(result)
