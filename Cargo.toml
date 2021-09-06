@@ -1,14 +1,14 @@
 [package]
 name = "neutrondb"
-version = "0.9.8"
+version = "0.9.9"
 edition = "2018"
 license = "MIT"
-description = "Rust implementation of NeutronDB, a Log-Structured Merge-tree Key-Value Store of Stellar Notation Objects."
+description = "Rust implementation of NeutronDB, LSM-tree Key-Value Store."
 repository = "https://github.com/seg-software/neutrondb-rs"
 readme = "README.md"
 
 [dependencies]
-stellar-notation = "0.9.6"
+stellar-notation = "0.9.11"
 blake3 = "1.0.0"
 sha2 = "0.9.5"
 sha3 = "0.9.1"

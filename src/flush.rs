@@ -7,8 +7,9 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use stellar_notation::{
-    StellarObject, StellarValue,
-    byte_encode, byte_decode
+    byte_encode,
+    byte_decode,
+    value_encode
 };
 
 use crate::Store;
@@ -38,52 +39,52 @@ pub fn perform(store: Store) -> Result<(), Box<dyn Error>> {
     let new_bloom_filter = store.cache.iter()
         .fold(vec![0; 32], |acc, x| bloom_filter::insert(acc, &x.0));
 
-    let new_bloom_filter_object = StellarObject(current_time.to_string(), StellarValue::Bytes(new_bloom_filter.clone()));
+    let nbf_kv = (current_time.to_string(), value_encode::bytes(&new_bloom_filter));
 
-    let bloom_filters_path = format!("{}/bloom_filters.stellar", &store_path);
+    let bfp = format!("{}/bloom_filters.stellar", &store_path);
 
-    if Path::new(&bloom_filters_path).is_file() {
+    if Path::new(&bfp).is_file() {
 
-        let bloom_filters = fs::read(&bloom_filters_path)?;
+        let bf_bytes = fs::read(&bfp)?;
 
-        let mut deserialize_bloom_filters = byte_decode::list(&bloom_filters);
+        let mut bf = byte_decode::group(&bf_bytes);
 
-        deserialize_bloom_filters.push(new_bloom_filter_object);
+        bf.push(nbf_kv);
 
-        let new_bloom_filters = byte_encode::list(deserialize_bloom_filters);
+        let nbf = byte_encode::group(bf);
 
-        fs::write(&bloom_filters_path, &new_bloom_filters)?;
+        fs::write(&bfp, &nbf)?;
     
     } else {
 
-        let new_bloom_filters = byte_encode::list(vec![new_bloom_filter_object]);
+        let nbf = byte_encode::object(&nbf_kv.0, &nbf_kv.1);
         
-        fs::write(&bloom_filters_path, &new_bloom_filters)?;
+        fs::write(&bfp, &nbf)?;
 
     }
 
-    // ADD TABLE LOCATION
-    let new_table_location_object = StellarObject(current_time.to_string(), StellarValue::UInt8(1));
+    // add table location 
+    let ntl_kv = (current_time.to_string(), value_encode::u128(&0));
 
-    let table_locations_path = format!("{}/table_locations.stellar", &store_path);
+    let tlp = format!("{}/table_locations.stellar", &store_path);
 
-    if Path::new(&table_locations_path).is_file() {
+    if Path::new(&tlp).is_file() {
 
-        let table_locations = fs::read(&table_locations_path)?;
+        let tl_bytes = fs::read(&tlp)?;
 
-        let mut deserialize_table_locations = byte_decode::list(&table_locations);
+        let mut tl = byte_decode::group(&tl_bytes);
 
-        deserialize_table_locations.push(new_table_location_object);
+        tl.push(ntl_kv);
 
-        let new_table_locations = byte_encode::list(deserialize_table_locations);
+        let ntl = byte_encode::group(tl);
 
-        fs::write(&table_locations_path, &new_table_locations)?;
+        fs::write(&tlp, &ntl)?;
     
     } else {
 
-        let new_table_locations = byte_encode::list(vec![new_table_location_object]);
+        let ntl = byte_encode::object(&ntl_kv.0, &ntl_kv.1);
         
-        fs::write(&table_locations_path, &new_table_locations)?;
+        fs::write(&tlp, &ntl)?;
         
     }
 

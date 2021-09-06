@@ -1,13 +1,11 @@
 
 use std::error::Error;
-
 use std::fs;
 use std::path::Path;
 
 use stellar_notation::{
-    StellarObject,
-    StellarValue,
-    byte_decode
+    byte_decode,
+    value_decode
 };
 
 use crate::Table;
@@ -24,19 +22,19 @@ pub fn store(name: &str) -> Result<(), Box<dyn Error>> {
 
 }
 
-pub fn cache(name: &str) -> Vec<StellarObject> {
+pub fn cache(name: &str) -> Vec<(String, String)> {
 
     let store_path = format!("./neutrondb/{}", name);
 
     let cache_path = format!("{}/cache.stellar", &store_path);
 
-    let mut cache: Vec<StellarObject> = Vec::new();
+    let mut cache: Vec<(String, String)> = Vec::new();
 
     if Path::new(&cache_path).is_file() {
         
         let cache_bytes = fs::read(&cache_path).unwrap();
 
-        cache = byte_decode::list(&cache_bytes);
+        cache = byte_decode::group(&cache_bytes);
 
     }
 
@@ -56,7 +54,7 @@ pub fn grave(name: &str) -> Vec<String> {
 
         let grave_bytes = fs::read(&grave_path).unwrap();
 
-        let grave_objects = byte_decode::list(&grave_bytes);
+        let grave_objects = byte_decode::group(&grave_bytes);
 
         grave = grave_objects.iter()
             .map(|x| x.0.to_string())
@@ -82,11 +80,11 @@ pub fn tables(name: &str) ->  Vec<Table> {
 
         let bloom_filters = fs::read(&bloom_filters_path).unwrap();
 
-        let bloom_filters_objects = byte_decode::list(&bloom_filters);
+        let bloom_filters_objects = byte_decode::group(&bloom_filters);
         
         let table_locations = fs::read(&table_locations_path).unwrap();
 
-        let table_locations_objects = byte_decode::list(&table_locations);
+        let table_locations_objects = byte_decode::group(&table_locations);
 
         table_locations_objects.iter()
             .for_each(|x| {
@@ -100,21 +98,11 @@ pub fn tables(name: &str) ->  Vec<Table> {
                     
                     Some(res) => {
 
-                        let mut level: u8 = 0;
+                        let level: u128 = value_decode::as_u128(&x.1).unwrap();
 
-                        match x.1 {
-                            StellarValue::UInt8(r) => level = r as u8,
-                            _ => ()
-                        }
+                        let bloom_filter: Vec<u8> = value_decode::as_bytes(&res.1).unwrap();
 
-                        let mut bloom_filter: Vec<u8> = Vec::new();
-
-                        match &res.1 {
-                            StellarValue::Bytes(r) => bloom_filter = r.clone(),
-                            _ => ()
-                        }
-
-                        let table = Table(table_name, level, bloom_filter);
+                        let table = Table(table_name, level as u8, bloom_filter);
 
                         tables.push(table);
                         

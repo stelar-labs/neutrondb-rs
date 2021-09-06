@@ -1,11 +1,13 @@
+
 # NeutronDB Rust
-Rust implementation of NeutronDB, a Log-Structured Merge-tree Key-Value Store serialized as Stellar Notation Objects.
+
+Rust implementation of NeutronDB, LSM-tree Key-Value Store.
 
 ## Usage
+
 ```
 
-neutrondb = "0.9.2"
-stellar-notation = "0.9.3"
+neutrondb = "0.9.9"
 
 ```
 
@@ -13,57 +15,50 @@ stellar-notation = "0.9.3"
 
 use neutrondb::store;
 
-use stellar_notation::{
-    StellarObject, StellarValue
-};
-
 ```
 
 ## Functions
 
 ### store
+
 ```
 
-let mut my_store = store("my").unwrap();
+let mut accs = store("accs")?;
 
 ```
 
 ### put
+
 ```
 
-let key: String = String::from("key_1");
+let k: String = String::from("user_1");
 
-let value: StellarValue = StellarValue::String(String::from("value_1"));
+let v: String = String::from("bal_1");
 
-let object: StellarObject = StellarObject(key, value);
-
-my_store.put(object).unwrap();
+accs.put((k, v))?;
 
 ```
 
 ### get
+
 ```
 
-let object: StellarObject = my_store.get("key_1").unwrap();
-
-let value: StellarValue = object.1;
-
-match value {
-    StellarValue::String(val) => println!(" * value: {}", val);
-    _ => ();
-}
+let v: String = accs.get("user_1")?;
 
 ```
 
 ### delete
+
 ```
 
-my_store.delete("key_1").unwrap();
+accs.delete("user_1")?;
 
 ```
 
 ## Intermediate Topics
+- Increase write performane with cache byte buffer
 - Flush & Compact in accordance with level capacity
+- Increase Bloom Filter size
 
 ## Future Topics
 - Read/Write Performance

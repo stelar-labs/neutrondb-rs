@@ -5,8 +5,9 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use stellar_notation::{
-    StellarObject, StellarValue,
-    byte_encode, byte_decode
+    byte_encode,
+    byte_decode,
+    value_encode
 };
 
 use crate::Store;
@@ -37,12 +38,12 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
                 level_files.sort();
                 level_files.reverse();
 
-                let level_file_objects_vec: Vec<Vec<StellarObject>> = level_files.iter()
+                let level_file_objects_vec: Vec<Vec<(String, String)>> = level_files.iter()
                     .map(|x| fs::read(x).unwrap())
-                    .map(|x| byte_decode::list(&x))
+                    .map(|x| byte_decode::group(&x))
                     .collect();
 
-                let mut level_objects: Vec<StellarObject> = level_file_objects_vec.concat();
+                let mut level_objects: Vec<(String, String)> = level_file_objects_vec.concat();
 
                 let initial_grave_size = store.grave.len();
 
@@ -70,19 +71,19 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
 
                 if store.grave.len() != initial_grave_size {
 
-                    let grave_objects: Vec<StellarObject> = store.grave.iter()
-                    .map(|x| StellarObject(x.to_string(), StellarValue::UInt8(0)))
+                    let grave_group: Vec<(String, String)> = store.grave.iter()
+                    .map(|x| (x.to_string(), value_encode::u128(&0)))
                     .collect();
 
-                    let grave_serialized = byte_encode::list(grave_objects);
+                    let grave_bytes = byte_encode::group(grave_group);
 
                     let grave_path = format!("{}/grave.stellar", &store_path);
 
-                    fs::write(&grave_path, &grave_serialized)?;
+                    fs::write(&grave_path, &grave_bytes)?;
 
                 }
 
-                let objects_serialized: Vec<u8> = byte_encode::list(level_objects.clone());
+                let objects_serialized: Vec<u8> = byte_encode::group(level_objects.clone());
 
                 let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
 
@@ -99,33 +100,33 @@ pub fn perform(mut store: Store) -> Result<(), Box<dyn Error>> {
                 let new_bloom_filter: Vec<u8> = level_objects.iter()
                     .fold(vec![0; 32], |acc, x| bloom_filter::insert(acc, &x.0));
 
-                let new_bloom_filter_object = StellarObject(current_time.to_string(), StellarValue::Bytes(new_bloom_filter));
+                let new_bloom_filter_object = (current_time.to_string(), value_encode::bytes(&new_bloom_filter));
 
                 let bloom_filters_path = format!("{}/bloom_filters.stellar", &store_path);
 
                 let bloom_filters = fs::read(&bloom_filters_path)?;
 
-                let mut deserialize_bloom_filters = byte_decode::list(&bloom_filters);
+                let mut deserialize_bloom_filters = byte_decode::group(&bloom_filters);
 
                 deserialize_bloom_filters.push(new_bloom_filter_object);
 
-                let new_bloom_filters = byte_encode::list(deserialize_bloom_filters);
+                let new_bloom_filters = byte_encode::group(deserialize_bloom_filters);
 
                 fs::write(&bloom_filters_path, &new_bloom_filters)?;
 
 
                 // ADD TABLE LOCATION
-                let new_table_location_object = StellarObject(current_time.to_string(), StellarValue::UInt8(&level + 1));
+                let new_table_location_object = (current_time.to_string(), value_encode::u128(&(&level + 1)));
 
                 let table_locations_path = format!("{}/table_locations.stellar", &store_path);
 
                 let table_locations = fs::read(&table_locations_path)?;
 
-                let mut deserialize_table_locations = byte_decode::list(&table_locations);
+                let mut deserialize_table_locations = byte_decode::group(&table_locations);
 
                 deserialize_table_locations.push(new_table_location_object);
 
-                let new_table_locations = byte_encode::list(deserialize_table_locations);
+                let new_table_locations = byte_encode::group(deserialize_table_locations);
 
                 fs::write(&table_locations_path, &new_table_locations)?;
 

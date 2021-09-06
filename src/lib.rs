@@ -8,11 +8,12 @@ mod initialization;
 mod flush;
 
 use stellar_notation::{
-    StellarObject,
-    StellarValue,
     byte_encode,
-    byte_decode
+    byte_decode,
+    value_encode
 };
+
+use std::path::Path;
 
 #[derive(Clone, Debug)]
 pub struct Table(pub String, pub u8, pub Vec<u8>);
@@ -20,15 +21,14 @@ pub struct Table(pub String, pub u8, pub Vec<u8>);
 #[derive(Clone, Debug)]
 pub struct Store {
     pub name: String,
-    pub cache: Vec<StellarObject>,
+    pub cache: Vec<(String, String)>,
     pub grave: Vec<String>,
-    pub tables: Vec<Table>,
-    pub perf_mode: bool
+    pub tables: Vec<Table>
 }
 
 impl Store {
 
-    pub fn put(&mut self, object: StellarObject) -> Result<(), Box<dyn Error>> {
+    pub fn put(&mut self, object: (String, String)) -> Result<(), Box<dyn Error>> {
 
         self.cache.push(object.clone());
 
@@ -36,7 +36,7 @@ impl Store {
 
         let cache_path = format!("{}/cache.stellar", &store_path);
 
-        let cache_serielized = byte_encode::list(self.cache.clone());
+        let cache_serielized = byte_encode::group(self.cache.clone());
 
         fs::write(&cache_path, &cache_serielized)?;
 
@@ -65,15 +65,27 @@ impl Store {
                 
                 self.grave.retain(|x| x != &insert_key);
 
-                let grave_objects: Vec<StellarObject> = self.grave.iter()
-                    .map(|x| StellarObject(x.to_string(), StellarValue::UInt8(0)))
-                    .collect();
-
-                let grave_serialized = byte_encode::list(grave_objects);
-
                 let grave_path = format!("{}/grave.stellar", &store_path);
 
-                fs::write(&grave_path, &grave_serialized)?;
+                if self.grave.is_empty() {
+
+                    if Path::new(&grave_path).is_file() {
+
+                        fs::remove_file(grave_path)?;
+
+                    }
+
+                } else {
+
+                    let grave_group: Vec<(String, String)> = self.grave.iter()
+                        .map(|x| (x.to_string(), value_encode::u128(&0)))
+                        .collect();
+
+                    let grave_group_bytes = byte_encode::group(grave_group);
+
+                    fs::write(&grave_path, &grave_group_bytes)?;
+                
+                }
             
             },
 
@@ -85,9 +97,9 @@ impl Store {
         
     }
 
-    pub fn get(&self, key: &str) -> Result<Option<StellarValue>, Box<dyn Error>> {
+    pub fn get(&self, key: &str) -> Result<Option<String>, Box<dyn Error>> {
 
-        let mut result: Option<StellarValue> = None;
+        let mut result: Option<String> = None;
 
         let grave_query = self.grave.iter()
             .find(|x| x == &key);
@@ -121,7 +133,7 @@ impl Store {
 
                                 let table_serialized = fs::read(&table_path)?;
 
-                                let table_deserialized = byte_decode::list(&table_serialized);
+                                let table_deserialized = byte_decode::group(&table_serialized);
 
                                 let table_query = table_deserialized.iter()
                                     .find(|x| x.0 == key);
@@ -153,25 +165,47 @@ impl Store {
 
     pub fn delete(&mut self, key: &str) -> Result<(), Box<dyn Error>> {
 
-        self.cache.retain(|x| x.0 != key);
+        let grave_query = self.grave.iter()
+            .find(|x| x == &key);
 
-        self.grave.push(key.to_string());
+        match grave_query {
+            
+            Some(_) => (),
+            
+            None => {
 
-        let grave_objects: Vec<StellarObject> = self.grave.iter()
-            .map(|x| StellarObject(x.to_string(), StellarValue::UInt8(0)))
-            .collect();
+                let store_path = format!("./neutrondb/{}", self.name);
 
-        let grave_serialized = byte_encode::list(grave_objects);
+                self.cache.retain(|x| x.0 != key);
 
-        let grave_path = format!("./neutrondb/{}/grave.stellar", &self.name);
+                if self.cache.is_empty() {
 
-        fs::write(&grave_path, &grave_serialized)?;
+                    let cache_path = format!("{}/cache.stellar", &store_path);
+                    fs::remove_file(&cache_path)?;
+
+                }
+
+                self.grave.push(key.to_string());
+
+                let grave_path = format!("{}/grave.stellar", &store_path);
+
+                let grave_group: Vec<(String, String)> = self.grave.iter()
+                    .map(|x| (x.to_string(), value_encode::u128(&0)))
+                    .collect();
+
+                let grave_group_bytes = byte_encode::group(grave_group);
+
+                fs::write(&grave_path, &grave_group_bytes)?;
+
+            }
+
+        }
 
         Ok(())
         
     }
 
-    pub fn get_all(&self) -> Result<Vec<StellarObject>, Box<dyn Error>> {
+    pub fn get_all(&self) -> Result<Vec<(String, String)>, Box<dyn Error>> {
 
         let store_path = format!("./neutrondb/{}", self.name);
 
@@ -185,7 +219,7 @@ impl Store {
 
             let table_bytes = fs::read(&table_path)?;
 
-            let table_objects = byte_decode::list(&table_bytes);
+            let table_objects = byte_decode::group(&table_bytes);
 
             objects = [objects, table_objects].concat();
 
@@ -215,8 +249,7 @@ pub fn store(name: &str) -> Result<Store, Box<dyn Error>> {
         name: String::from(name),
         cache: cache,
         grave: grave,
-        tables: tables,
-        perf_mode: false
+        tables: tables
     };
 
     return Ok(store)
