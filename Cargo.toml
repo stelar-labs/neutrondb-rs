@@ -1,10 +1,10 @@
 [package]
 name = "neutrondb"
-version = "0.9.9"
+version = "0.9.10"
 edition = "2018"
 license = "MIT"
 description = "Rust implementation of NeutronDB, LSM-tree Key-Value Store."
-repository = "https://github.com/seg-software/neutrondb-rs"
+repository = "https://github.com/seg-software/rust-neutrondb"
 readme = "README.md"
 
 [dependencies]
