@@ -205,13 +205,13 @@ impl Store {
         
     }
 
-    pub fn get_all(&self) -> Result<Vec<(String, String)>, Box<dyn Error>> {
+    pub fn get_all(&self) -> Result<Option<Vec<(String, String)>>, Box<dyn Error>> {
 
         let store_path = format!("./neutrondb/{}", self.name);
 
-        let mut objects = self.cache.clone();
+        let mut group = self.cache.clone();
         
-        objects.reverse();
+        group.reverse();
 
         for table in &self.tables {
 
@@ -221,15 +221,23 @@ impl Store {
 
             let table_objects = byte_decode::group(&table_bytes);
 
-            objects = [objects, table_objects].concat();
+            group = [group, table_objects].concat();
 
         }
 
-        objects.sort_by_key(|x| x.0.to_string());
+        if group.is_empty() {
+            
+            Ok(None)
+        
+        } else {
 
-        objects.dedup_by_key(|x| x.0.to_string());
+            group.sort_by_key(|x| x.0.to_string());
 
-        return Ok(objects);
+            group.dedup_by_key(|x| x.0.to_string());
+            
+            Ok(Some(group))
+
+        }
 
     }
 
