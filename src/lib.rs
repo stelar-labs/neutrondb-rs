@@ -19,7 +19,7 @@ pub struct Store {
 impl Store {
 
     pub fn put(&mut self, object: (String, String)) -> Result<(), Box<dyn Error>> {
-        self = query::put::run(self, object)?;
+        query::put::run(self, object)?;
         Ok(())
         
     }
@@ -31,7 +31,7 @@ impl Store {
     }
 
     pub fn delete(&mut self, key: &str) -> Result<(), Box<dyn Error>> {
-        self = query::delete::run(self, key)?;
+        query::delete::run(self, key)?;
         Ok(())
         
     }

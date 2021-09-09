@@ -17,7 +17,7 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
 
     let mut store = Store {
         name: String::from(name),
-        cache: vec![vec![]],
+        cache: vec![],
         cache_buffer: vec![],
         grave: vec![],
         tables: vec![]

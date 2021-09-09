@@ -11,11 +11,11 @@ use stellar_notation::{
     value_encode
 };
 
-pub fn run(store: &mut Store, object: (String, String)) -> Result<&mut Store, Box<dyn Error>> {
+pub fn run(store: &mut Store, object: (String, String)) -> Result<(), Box<dyn Error>> {
 
     store.cache.push(object.clone());
 
-    store.cache_buffer = [store.cache_buffer, byte_encode::object(&object.0, &object.1)].concat();
+    store.cache_buffer = [store.cache_buffer.clone(), byte_encode::object(&object.0, &object.1)].concat();
 
     let store_path = format!("./neutrondb/{}", store.name);
 
@@ -75,6 +75,6 @@ pub fn run(store: &mut Store, object: (String, String)) -> Result<&mut Store, Bo
 
     }
 
-    Ok(store)
+    Ok(())
     
 }

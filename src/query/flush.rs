@@ -70,7 +70,7 @@ pub fn run(store: Store) -> Result<(), Box<dyn Error>> {
 
         table_group.push(table);
 
-        let table_buffer = byte_encode::group(table_group);
+        table_buffer = byte_encode::group(table_group);
 
         fs::write(&tables_path, &table_buffer)?;
     

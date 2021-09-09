@@ -7,7 +7,7 @@ Rust implementation of NeutronDB, LSM-tree Key-Value Store.
 
 ```
 
-neutrondb = "0.9.12"
+neutrondb = "0.9.13"
 
 ```
 

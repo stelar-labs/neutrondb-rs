@@ -9,7 +9,7 @@ use stellar_notation::{
     value_encode
 };
 
-pub fn run<'a>(store: &'a mut Store, key: &str) -> Result<&'a mut Store, Box<dyn Error>> {
+pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
 
     let grave_query = store.grave.iter()
         .find(|x| x == &key);
@@ -46,6 +46,6 @@ pub fn run<'a>(store: &'a mut Store, key: &str) -> Result<&'a mut Store, Box<dyn
 
     }
 
-    Ok(store)
+    Ok(())
     
 }
