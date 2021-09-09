@@ -7,7 +7,7 @@ Rust implementation of NeutronDB, LSM-tree Key-Value Store.
 
 ```
 
-neutrondb = "0.9.11"
+neutrondb = "0.9.12"
 
 ```
 
@@ -31,11 +31,11 @@ let mut accs = store("accs")?;
 
 ```
 
-let k: String = String::from("user_1");
+let key: String = String::from("user_1");
 
-let v: String = String::from("bal_1");
+let value: String = String::from("bal_1");
 
-accs.put((k, v))?;
+accs.put((key, value))?;
 
 ```
 
@@ -43,7 +43,15 @@ accs.put((k, v))?;
 
 ```
 
-let v: String = accs.get("user_1")?;
+let value: String = accs.get("user_1")?;
+
+```
+
+### get all
+
+```
+
+let values: Vec<(String, String)> = accs.get_all()?;
 
 ```
 
@@ -55,15 +63,12 @@ accs.delete("user_1")?;
 
 ```
 
-## Intermediate Topics
-- Increase write performane with cache byte buffer
+## Future Topics
 - Flush & Compact in accordance with level capacity
 - Increase Bloom Filter size
-
-## Future Topics
 - Read/Write Performance
 - Compression
 - Error Correction
 
 ## Contribution
-Any interested party can contact me through email at itsmereystar@protonmail.com
+Any interested party can contact me through twitter @itsmereystar or email at itsmereystar@protonmail.com
