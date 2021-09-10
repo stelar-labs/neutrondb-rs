@@ -4,144 +4,112 @@ use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use stellar_notation::{
-    byte_encode,
-    byte_decode,
-    value_encode
-};
+use stellar_notation::{ encoding, decoding };
 
 use crate::Store;
+use crate::Table;
 use crate::query::bloom_filter;
 
-pub fn run(mut store: Store) -> Result<(), Box<dyn Error>> {
+pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
     
     let store_path = format!("./neutrondb/{}", store.name);
 
     for level in 1..=4 {
 
-        let level_path = format!("{}/level_{}", &store_path, &level);
+        let mut tables: Vec<&Table> = store.tables
+            .iter()
+            .filter(|x| x.level == level)
+            .collect();
 
-        if Path::new(&level_path).is_dir() {
+        tables.sort_by_key(|x| x.name.to_string());
 
-            let mut level_files = Vec::new();
+        if tables.len() > 4 {
 
-            for file in fs::read_dir(&level_path)? {
-                let file = file?;
-                let file_path = file.path();
-                if file_path.is_file() {
-                    level_files.push(file_path)
+            let level_path = format!("{}/level_{}", &store_path, &level);
+
+            let mut table_files = Vec::new();
+
+            for table in tables {
+                let table_path = format!("{}/{}.stellar", &level_path, table.name);
+                if Path::new(&table_path).is_file() {
+                    table_files.push(table_path)
                 }
             }
 
-            if level_files.len() == 5 {
-                
-                level_files.sort();
-                level_files.reverse();
+            let table_groups: Vec<Vec<(String, String)>> = table_files
+                .iter()
+                .map(|x| fs::read(x).unwrap())
+                .map(|x| decoding::group(&x).unwrap())
+                .collect();
 
-                let level_file_groups: Vec<Vec<(String, String)>> = level_files
-                    .iter()
-                    .map(|x| fs::read(x).unwrap())
-                    .map(|x| byte_decode::group(&x).unwrap())
-                    .collect();
+            let mut level_group = table_groups.concat();
 
-                let mut level_group: Vec<(String, String)> = level_file_groups.concat();
+            for grave in store.graves.clone() {
 
-                let initial_grave_size = store.grave.len();
+                let key_query = level_group.iter()
+                    .find(|x| x.0 == grave);
 
-                let grave_list = store.grave.clone();
-
-                for i in grave_list {
-
-                    let objects_query = level_group.iter()
-                        .find(|x| x.0 == i);
-
-                    match objects_query {
-
-                        Some(_) => {
-
-                            store.grave.retain(|x| x != &i);
-
-                            level_group.retain(|x| x.0 != i);
-
-                        },
-
-                        None => ()
-
-                    }
+                match key_query {
+                    Some(_) => {
+                        store.graves.retain(|x| x != &grave);
+                        level_group.retain(|x| x.0 != grave);
+                    },
+                    None => ()
                 }
 
-                if store.grave.len() != initial_grave_size {
-
-                    let grave_group: Vec<(String, String)> = store.grave
-                        .iter()
-                        .map(|x| (x.to_string(), value_encode::u128(&0)))
-                        .collect();
-
-                    let grave_buffer = byte_encode::group(grave_group);
-
-                    let grave_path = format!("{}/grave.stellar", &store_path);
-
-                    fs::write(&grave_path, &grave_buffer)?;
-
-                }
-
-                let sorted_buffer: Vec<u8> = byte_encode::group(level_group.clone());
-
-                let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
-
-                let next_level_path = format!("{}/level_{}", &store_path, &level + 1);
-
-                fs::create_dir_all(&next_level_path)?;
-
-                let sorted_path = format!("{}/{}.stellar", &next_level_path, &current_time);
-
-                fs::write(&sorted_path, &sorted_buffer)?;
-
-                // bloom filter 
-                let bloom_filter: Vec<u8> = level_group
-                    .iter()
-                    .fold(vec![0; 32], |acc, x| bloom_filter::insert(acc, &x.0));
-
-                let bloom = (current_time.to_string(), value_encode::bytes(&bloom_filter));
-
-                let blooms_path = format!("{}/blooms.stellar", &store_path);
-
-                let mut blooms_buffer = fs::read(&blooms_path)?;
-
-                let mut blooms_group = byte_decode::group(&blooms_buffer)?;
-
-                blooms_group.push(bloom);
-
-                blooms_buffer = byte_encode::group(blooms_group);
-
-                fs::write(&blooms_path, &blooms_buffer)?;
-
-
-                // tables
-                let table = (current_time.to_string(), value_encode::u128(&(&level + 1)));
-
-                let tables_path = format!("{}/tables.stellar", &store_path);
-
-                let mut tables_buffer = fs::read(&tables_path)?;
-
-                let mut tables_group = byte_decode::group(&tables_buffer)?;
-
-                tables_group.push(table);
-
-                tables_buffer = byte_encode::group(tables_group);
-
-                fs::write(&tables_path, &tables_buffer)?;
-
-                // REMOVE COMPACTED FILES
-                for file in level_files {
-
-                    fs::remove_file(file)?;
-                    // remove blooms and locations
-
-                }
-                
             }
 
+            let bloom_filter: Vec<u8> = level_group
+                .iter()
+                .fold(vec![0; 32], |acc, x| bloom_filter::insert(acc, &x.0));
+
+            let level_buffer: Vec<u8> = encoding::group(level_group);
+
+            let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
+
+            let next_level = &level + 1;
+
+            let next_level_path = format!("{}/level_{}", &store_path, &next_level);
+
+            fs::create_dir_all(&next_level_path)?;
+
+            let next_table_path = format!("{}/{}.stellar", &next_level_path, &current_time);
+
+            fs::write(&next_table_path, &level_buffer)?;
+
+            store.tables.retain(|x| x.level != level);
+
+            let new_table = Table{
+                name: current_time.to_string(),
+                level: next_level,
+                bloom_filter: bloom_filter
+            };
+
+            store.tables.push(new_table);
+
+            let mut new_tables_group = vec![];
+
+            for table in &store.tables {
+
+                let table_value = encoding::group(vec![
+                    ("level".to_string(), encoding::u128(&(table.level as u128))),
+                    ("bloom_filter".to_string(), encoding::bytes(&table.bloom_filter))
+                ]);
+
+                new_tables_group.push((current_time.to_string(), encoding::bytes(&table_value)));
+
+            }
+
+            let new_tables_buffer = encoding::group(new_tables_group);
+
+            let tables_path = format!("{}/tables.stellar", &store_path);
+
+            fs::write(&tables_path, &new_tables_buffer)?;
+
+            for table in table_files {
+                fs::remove_file(table)?;
+            }
+            
         }
 
     }

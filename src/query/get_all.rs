@@ -4,35 +4,35 @@ use std::fs;
 
 use crate::Store;
 
-use stellar_notation::{
-    byte_decode
-};
+use stellar_notation::{ decoding };
 
 pub fn run(store: &Store) -> Result<Option<Vec<(String, String)>>, Box<dyn Error>> {
 
     let store_path = format!("./neutrondb/{}", store.name);
 
-    let mut group = store.cache.clone();
-    
-    group.reverse();
+    let mut group = vec![];
 
     for table in &store.tables {
 
-        let sorted_path = format!("{}/level_{}/{}.stellar", &store_path, table.1, table.0);
+        let table_path = format!("{}/level_{}/{}.stellar", &store_path, table.level, table.name);
 
-        let sorted_buffer = fs::read(&sorted_path)?;
+        let table_buffer = fs::read(&table_path)?;
 
-        let sorted_group = byte_decode::group(&sorted_buffer)?;
+        let table_group = decoding::group(&table_buffer)?;
 
-        group = [group, sorted_group].concat();
+        group = [group, table_group].concat();
 
     }
+
+    group = [group, store.cache.clone()].concat();
 
     if group.is_empty() {
         
         Ok(None)
     
     } else {
+
+        group.reverse();
 
         group.sort_by_key(|x| x.0.to_string());
 

@@ -4,14 +4,11 @@ use std::fs;
 
 use crate::Store;
 
-use stellar_notation::{
-    byte_encode,
-    value_encode
-};
+use stellar_notation::{ encoding };
 
 pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
 
-    let grave_query = store.grave.iter()
+    let grave_query = store.graves.iter()
         .find(|x| x == &key);
 
     match grave_query {
@@ -30,17 +27,17 @@ pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
 
             }
 
-            store.grave.push(key.to_string());
+            store.graves.push(key.to_string());
 
-            let grave_path = format!("{}/grave.stellar", &store_path);
+            let graves_path = format!("{}/graves.stellar", &store_path);
 
-            let grave_group: Vec<(String, String)> = store.grave.iter()
-                .map(|x| (x.to_string(), value_encode::u128(&0)))
+            let graves_group: Vec<(String, String)> = store.graves.iter()
+                .map(|x| (x.to_string(), encoding::u128(&0)))
                 .collect();
 
-            let grave_buffer = byte_encode::group(grave_group);
+            let graves_buffer = encoding::group(graves_group);
 
-            fs::write(&grave_path, &grave_buffer)?;
+            fs::write(&graves_path, &graves_buffer)?;
 
         }
 

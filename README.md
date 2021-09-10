@@ -1,13 +1,13 @@
 
 # NeutronDB Rust
 
-Rust implementation of NeutronDB, LSM-tree Key-Value Store.
+Rust Implementation of NeutronDB, A String Key-Value Store.
 
 ## Usage
 
 ```
 
-neutrondb = "0.9.13"
+neutrondb = "0.9.14"
 
 ```
 
@@ -31,11 +31,7 @@ let mut accs = store("accs")?;
 
 ```
 
-let key: String = String::from("user_1");
-
-let value: String = String::from("bal_1");
-
-accs.put((key, value))?;
+accs.put("user1", "balance1")?;
 
 ```
 
@@ -43,7 +39,7 @@ accs.put((key, value))?;
 
 ```
 
-let value: String = accs.get("user_1")?;
+let balance1: String = accs.get("user1")?;
 
 ```
 
@@ -51,7 +47,7 @@ let value: String = accs.get("user_1")?;
 
 ```
 
-let values: Vec<(String, String)> = accs.get_all()?;
+let accounts: Vec<(String, String)> = accs.get_all()?;
 
 ```
 
@@ -59,16 +55,17 @@ let values: Vec<(String, String)> = accs.get_all()?;
 
 ```
 
-accs.delete("user_1")?;
+accs.delete("user1")?;
 
 ```
 
 ## Future Topics
-- Flush & Compact in accordance with level capacity
 - Increase Bloom Filter size
 - Read/Write Performance
 - Compression
 - Error Correction
 
 ## Contribution
-Any interested party can contact me through twitter @itsmereystar or email at itsmereystar@protonmail.com
+Any interested party can contact me on twitter @itsmereystar or email itsmereystar@protonmail.com
+
+2021-09-10

@@ -6,16 +6,13 @@ use std::path::Path;
 use crate::query::{compaction, flush};
 use crate::Store;
 
-use stellar_notation::{
-    byte_encode,
-    value_encode
-};
+use stellar_notation::{ encoding };
 
-pub fn run(store: &mut Store, object: (String, String)) -> Result<(), Box<dyn Error>> {
+pub fn run(store: &mut Store, key: &str, value: &str) -> Result<(), Box<dyn Error>> {
 
-    store.cache.push(object.clone());
+    store.cache.push((key.to_string(), value.to_string()));
 
-    store.cache_buffer = [store.cache_buffer.clone(), byte_encode::object(&object.0, &object.1)].concat();
+    store.cache_buffer = [store.cache_buffer.clone(), encoding::object(key, value)].concat();
 
     let store_path = format!("./neutrondb/{}", store.name);
 
@@ -25,47 +22,42 @@ pub fn run(store: &mut Store, object: (String, String)) -> Result<(), Box<dyn Er
 
     if store.cache_buffer.len() > 2097152 {
 
-        flush::run(store.clone())?;
+        flush::run(store)?;
 
         fs::remove_file(&cache_path)?;
 
         store.cache.clear();
 
-        compaction::run(store.clone())?;
-
-        // reload grave and tables
+        compaction::run(store)?;
 
     }
 
-    let insert_key = object.0;
-
-    let grave_query = store.grave.iter()
-        .find(|&x| x == &insert_key);
+    let grave_query = store.graves.iter()
+        .find(|&x| x == key);
 
     match grave_query {
         
         Some(_) => {
             
-            store.grave.retain(|x| x != &insert_key);
+            store.graves.retain(|x| x != key);
 
-            let grave_path = format!("{}/grave.stellar", &store_path);
+            let graves_path = format!("{}/graves.stellar", &store_path);
 
-            if store.grave.is_empty() {
-                if Path::new(&grave_path).is_file() {
-                    fs::remove_file(grave_path)?;
-
+            if store.graves.is_empty() {
+                if Path::new(&graves_path).is_file() {
+                    fs::remove_file(graves_path)?;
                 }
 
             } else {
 
-                let grave_group: Vec<(String, String)> = store.grave
+                let graves_group: Vec<(String, String)> = store.graves
                     .iter()
-                    .map(|x| (x.to_string(), value_encode::u128(&0)))
+                    .map(|x| (x.to_string(), encoding::u128(&0)))
                     .collect();
 
-                let grave_buffer = byte_encode::group(grave_group);
+                let graves_buffer = encoding::group(graves_group);
 
-                fs::write(&grave_path, &grave_buffer)?;
+                fs::write(&graves_path, &graves_buffer)?;
             
             }
         

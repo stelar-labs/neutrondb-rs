@@ -5,47 +5,41 @@ mod init;
 mod query;
 
 #[derive(Clone, Debug)]
-pub struct Table(pub String, pub u8, pub Vec<u8>);
+struct Table {
+    name: String,
+    level: u8,
+    bloom_filter: Vec<u8>
+}
 
 #[derive(Clone, Debug)]
 pub struct Store {
     pub name: String,
-    pub cache: Vec<(String, String)>,
-    pub cache_buffer: Vec<u8>,
-    pub grave: Vec<String>,
-    pub tables: Vec<Table>
+    cache: Vec<(String, String)>,
+    cache_buffer: Vec<u8>,
+    graves: Vec<String>,
+    tables: Vec<Table>
 }
 
 impl Store {
 
-    pub fn put(&mut self, object: (String, String)) -> Result<(), Box<dyn Error>> {
-        query::put::run(self, object)?;
-        Ok(())
-        
+    pub fn new(name: &str) -> Result<Store, Box<dyn Error>> {
+        init::run(name)
+    }
+
+    pub fn put(&mut self, key: &str, value: &str) -> Result<(), Box<dyn Error>> {
+        query::put::run(self, key, value)
     }
 
     pub fn get(&self, key: &str) -> Result<Option<String>, Box<dyn Error>> {
-        let result = query::get::run(self, key)?;
-        Ok(result)
-
-    }
-
-    pub fn delete(&mut self, key: &str) -> Result<(), Box<dyn Error>> {
-        query::delete::run(self, key)?;
-        Ok(())
-        
+        query::get::run(self, key)
     }
 
     pub fn get_all(&self) -> Result<Option<Vec<(String, String)>>, Box<dyn Error>> {
-        let result = query::get_all::run(self)?;
-        Ok(result)
-        
+        query::get_all::run(self)
     }
 
-}
-
-pub fn store(name: &str) -> Result<Store, Box<dyn Error>> {
-    let result: Store = init::run(name)?;
-    Ok(result)
+    pub fn delete(&mut self, key: &str) -> Result<(), Box<dyn Error>> {
+        query::delete::run(self, key)
+    }
 
 }
