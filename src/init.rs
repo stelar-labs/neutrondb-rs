@@ -64,7 +64,7 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
                     let value_group = decoding::group(&value_buffer).unwrap();
 
                     Table {
-                        name: x.1.to_string(),
+                        name: x.0.to_string(),
                         level: decoding::as_u128(&value_group[1].1).unwrap() as u8,
                         bloom_filter: decoding::as_bytes(&value_group[0].1).unwrap()
                     }
@@ -73,6 +73,8 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
                 .collect();
 
         }
+
+        println!(" * tables: {}", store.tables.len());
 
         Ok(store)
     

@@ -23,7 +23,7 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
 
         tables.sort_by_key(|x| x.name.to_string());
 
-        if tables.len() > 4 {
+        if tables.len() == 5 {
 
             let level_path = format!("{}/level_{}", &store_path, &level);
 
@@ -32,7 +32,7 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
             for table in tables {
                 let table_path = format!("{}/{}.stellar", &level_path, table.name);
                 if Path::new(&table_path).is_file() {
-                    table_files.push(table_path)
+                    table_files.push(table_path);
                 }
             }
 
@@ -44,20 +44,7 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
 
             let mut level_group = table_groups.concat();
 
-            for grave in store.graves.clone() {
-
-                let key_query = level_group.iter()
-                    .find(|x| x.0 == grave);
-
-                match key_query {
-                    Some(_) => {
-                        store.graves.retain(|x| x != &grave);
-                        level_group.retain(|x| x.0 != grave);
-                    },
-                    None => ()
-                }
-
-            }
+            level_group.retain(|x| store.graves.contains(&x.0) == false);
 
             let bloom_filter: Vec<u8> = level_group
                 .iter()
@@ -67,9 +54,7 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
 
             let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
 
-            let next_level = &level + 1;
-
-            let next_level_path = format!("{}/level_{}", &store_path, &next_level);
+            let next_level_path = format!("{}/level_{}", &store_path, &level + 1);
 
             fs::create_dir_all(&next_level_path)?;
 
@@ -81,30 +66,31 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
 
             let new_table = Table{
                 name: current_time.to_string(),
-                level: next_level,
+                level: &level + 1,
                 bloom_filter: bloom_filter
             };
 
             store.tables.push(new_table);
 
-            let mut new_tables_group = vec![];
+            let tables_group: Vec<(String, String)> = store.tables
+                .iter()
+                .map(|x| {
 
-            for table in &store.tables {
+                    let table_value = encoding::group(vec![
+                        ("level".to_string(), encoding::u128(&(x.level as u128))),
+                        ("bloom_filter".to_string(), encoding::bytes(&x.bloom_filter))
+                    ]);
 
-                let table_value = encoding::group(vec![
-                    ("level".to_string(), encoding::u128(&(table.level as u128))),
-                    ("bloom_filter".to_string(), encoding::bytes(&table.bloom_filter))
-                ]);
+                    (x.name.to_string(), encoding::bytes(&table_value))
 
-                new_tables_group.push((current_time.to_string(), encoding::bytes(&table_value)));
+                })
+                .collect();
 
-            }
-
-            let new_tables_buffer = encoding::group(new_tables_group);
+            let tables_buffer = encoding::group(tables_group);
 
             let tables_path = format!("{}/tables.stellar", &store_path);
 
-            fs::write(&tables_path, &new_tables_buffer)?;
+            fs::write(&tables_path, &tables_buffer)?;
 
             for table in table_files {
                 fs::remove_file(table)?;

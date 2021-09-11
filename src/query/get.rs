@@ -35,10 +35,11 @@ pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
 
                     let store_path = format!("./neutrondb/{}", store.name);
 
-                    let mut reversed_table = store.tables.clone();
-                    reversed_table.reverse();
+                    let mut reversed_tables = store.tables.clone();
                     
-                    for table in reversed_table {
+                    reversed_tables.reverse();
+                    
+                    for table in reversed_tables {
 
                         if bloom_filter::lookup(&table.bloom_filter, &key) {
 
@@ -61,6 +62,7 @@ pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
                                 None => ()
 
                             }
+
                         }
 
                     }

@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-use crate::query::{compaction, flush};
+use crate::query::{ compaction, flush };
 use crate::Store;
 
 use stellar_notation::{ encoding };
@@ -12,7 +12,9 @@ pub fn run(store: &mut Store, key: &str, value: &str) -> Result<(), Box<dyn Erro
 
     store.cache.push((key.to_string(), value.to_string()));
 
-    store.cache_buffer = [store.cache_buffer.clone(), encoding::object(key, value)].concat();
+    encoding::object(key, value)
+        .iter()
+        .for_each(|x| store.cache_buffer.push(*x));
 
     let store_path = format!("./neutrondb/{}", store.name);
 
@@ -27,6 +29,7 @@ pub fn run(store: &mut Store, key: &str, value: &str) -> Result<(), Box<dyn Erro
         fs::remove_file(&cache_path)?;
 
         store.cache.clear();
+        store.cache_buffer.clear();
 
         compaction::run(store)?;
 
