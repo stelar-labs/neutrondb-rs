@@ -5,10 +5,11 @@ use std::path::Path;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use stellar_notation::{ encoding };
+use stellar_notation::{ encode };
 
+use crate::linked_list;
 use crate::Store;
-use crate::Table;
+use crate::List;
 use crate::query::bloom_filter;
 
 pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
@@ -21,43 +22,53 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
         fs::create_dir(&level_1_path)?;
     }
 
+    store.cache.reverse();
+
+    store.cache.sort_by_key(|x| x.0.to_owned());
+
+    store.cache.dedup_by_key(|x| x.0.to_owned());
+
     let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 
-    let table_path = format!("{}/{}.stellar", &level_1_path, &current_time);
+    let sorted_buffer: Vec<u8> = linked_list::serialize::list(&store.cache);
 
-    fs::write(&table_path, &store.cache_buffer)?;
+    let sorted_path = format!("{}/{}.ndbs", &level_1_path, &current_time);
+
+    fs::write(&sorted_path, &sorted_buffer)?;
 
     let bloom_filter = store.cache
         .iter()
         .fold(vec![0; 32], |acc, x| bloom_filter::insert(acc, &x.0));
 
-    let table = Table{
+    let list = List{
         name: current_time.to_string(),
         level: 1,
         bloom_filter: bloom_filter
     };
 
-    store.tables.push(table);
+    store.lists.push(list);
 
-    let tables_group: Vec<(String, String)> = store.tables
+    let lists: Vec<(String, String)> = store.lists
         .iter()
         .map(|x| {
 
-            let table_value = encoding::group(vec![
-                ("level".to_string(), encoding::u128(&(x.level as u128))),
-                ("bloom_filter".to_string(), encoding::bytes(&x.bloom_filter))
-            ]);
+            let list_value: String = encode::list(
+                &vec![
+                    encode::u8(&x.level),
+                    encode::bytes(&x.bloom_filter)
+                ]
+            );
 
-            (x.name.to_string(), encoding::bytes(&table_value))
+            (x.name.to_string(), list_value)
 
         })
         .collect();
 
-    let tables_buffer = encoding::group(tables_group);
+    let lists_buffer = linked_list::serialize::list(&lists);
 
-    let tables_path = format!("{}/tables.stellar", &store_path);
+    let lists_path = format!("{}/lists.ndbl", &store_path);
 
-    fs::write(&tables_path, &tables_buffer)?;
+    fs::write(&lists_path, &lists_buffer)?;
 
     Ok(())
 

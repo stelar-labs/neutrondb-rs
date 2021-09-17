@@ -1,11 +1,24 @@
 
 use std::error::Error;
+use std::fmt;
 
 mod init;
+mod linked_list;
 mod query;
 
+#[derive(Debug)]
+struct CustomError(String);
+
+impl fmt::Display for CustomError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "NeutronDB Error: {}", self.0)
+    }
+}
+
+impl Error for CustomError {}
+
 #[derive(Clone, Debug)]
-struct Table {
+struct List {
     name: String,
     level: u8,
     bloom_filter: Vec<u8>
@@ -13,11 +26,11 @@ struct Table {
 
 #[derive(Clone, Debug)]
 pub struct Store {
-    pub name: String,
+    name: String,
     cache: Vec<(String, String)>,
     cache_buffer: Vec<u8>,
     graves: Vec<String>,
-    tables: Vec<Table>
+    lists: Vec<List>
 }
 
 impl Store {

@@ -2,17 +2,17 @@
 use std::error::Error;
 use std::fs;
 
+use crate::linked_list;
 use crate::query::bloom_filter;
 use crate::Store;
-
-use stellar_notation::{ decoding };
 
 pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
 
     let mut result: Option<String> = None;
 
-    let grave_query = store.graves.iter()
-        .find(|x| x == &key);
+    let grave_query = store.graves
+        .iter()
+        .find(|&x| x == key);
 
     match grave_query {
 
@@ -24,8 +24,9 @@ pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
             
             cache.reverse();
 
-            let cache_query = cache.iter()
-                .find(|x| &x.0 == &key);
+            let cache_query = cache
+                .iter()
+                .find(|x| x.0 == key);
 
             match cache_query {
 
@@ -35,24 +36,24 @@ pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
 
                     let store_path = format!("./neutrondb/{}", store.name);
 
-                    let mut reversed_tables = store.tables.clone();
+                    let mut lists = store.lists.clone();
                     
-                    reversed_tables.reverse();
+                    lists.reverse();
                     
-                    for table in reversed_tables {
+                    for list in lists {
 
-                        if bloom_filter::lookup(&table.bloom_filter, &key) {
+                        if bloom_filter::lookup(&list.bloom_filter, &key) {
 
-                            let table_path = format!("{}/level_{}/{}.stellar", &store_path, table.level, table.name);
+                            let list_path = format!("{}/level_{}/{}.ndbs", &store_path, list.level, list.name);
 
-                            let table_buffer = fs::read(&table_path)?;
+                            let list_buffer = fs::read(&list_path)?;
 
-                            let table_group = decoding::group(&table_buffer)?;
+                            let list = linked_list::deserialize::list(&list_buffer)?;
 
-                            let table_query = table_group.iter()
+                            let list_query = list.iter()
                                 .find(|x| x.0 == key);
 
-                            match table_query {
+                            match list_query {
 
                                 Some(res) => {
                                     result = Some(res.1.to_owned());

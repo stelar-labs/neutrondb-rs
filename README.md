@@ -7,7 +7,7 @@ Rust Implementation of NeutronDB, LSM-Tree String Key-Value Store.
 
 ```
 
-neutrondb = "0.9.15"
+neutrondb = "0.9.16"
 
 ```
 
@@ -61,8 +61,10 @@ accs.delete("user1")?;
 
 ## Future Topics
 - Increase Bloom Filter Size
-- Read/Write Performance
+- Use Sorted Lists on Merged Lists
+- Read/Write Performance through multi-threading and batching
 - Data Compression
+- Error Detection
 - Error Correction
 
 ## Contribution

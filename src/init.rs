@@ -3,10 +3,11 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
+use crate::linked_list;
+use crate::List;
 use crate::Store;
-use crate::Table;
 
-use stellar_notation::{ decoding };
+use stellar_notation::{ decode };
 
 pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
 
@@ -17,7 +18,7 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
         cache: vec![],
         cache_buffer: vec![],
         graves: vec![],
-        tables: vec![]
+        lists: vec![]
     };
 
     if Path::new(&store_path).is_dir() == false {
@@ -26,55 +27,53 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
     
     } else {
 
-        let cache_path = format!("{}/cache.stellar", &store_path);
+        let cache_path = format!("{}/cache.ndbl", &store_path);
 
         if Path::new(&cache_path).is_file() {
             store.cache_buffer = fs::read(&cache_path)?;
-            store.cache = decoding::group(&store.cache_buffer)?;
+            store.cache = linked_list::deserialize::list(&store.cache_buffer)?;
 
         }
 
-        let grave_path = format!("{}/graves.stellar", &store_path);
+        let graves_path = format!("{}/graves.ndbl", &store_path);
 
-        if Path::new(&grave_path).is_file() {
-            let grave_bytes = fs::read(&grave_path)?;
-            let grave_group: Vec<(String, String)> = decoding::group(&grave_bytes)?;
+        if Path::new(&graves_path).is_file() {
+            let graves_buffer: Vec<u8> = fs::read(&graves_path)?;
+            let grave_objects: Vec<(String, String)> = linked_list::deserialize::list(&graves_buffer)?;
 
-            store.graves = grave_group
+            store.graves = grave_objects
                 .iter()
                 .map(|x| x.0.to_string())
                 .collect();
 
         }
 
-        let tables_path = format!("{}/tables.stellar", &store_path);
+        let lists_path = format!("{}/lists.ndbl", &store_path);
         
-        if Path::new(&tables_path).is_file() {
+        if Path::new(&lists_path).is_file() {
 
-            let tables_buffer = fs::read(&tables_path)?;
+            let lists_buffer: Vec<u8> = fs::read(&lists_path)?;
 
-            let tables_group = decoding::group(&tables_buffer)?;
+            let lists: Vec<(String, String)> = linked_list::deserialize::list(&lists_buffer)?;
 
-            store.tables = tables_group
+            store.lists = lists
                 .iter()
                 .map(|x| {
 
-                    let value_buffer = decoding::as_bytes(&x.1).unwrap();
+                    let values: Vec<String> = decode::as_list(&x.1).unwrap();
 
-                    let value_group = decoding::group(&value_buffer).unwrap();
+                    println!(" * level: {:?}", decode::as_u8(&values[0]).unwrap());
 
-                    Table {
+                    List {
                         name: x.0.to_string(),
-                        level: decoding::as_u128(&value_group[1].1).unwrap() as u8,
-                        bloom_filter: decoding::as_bytes(&value_group[0].1).unwrap()
+                        level: decode::as_u8(&values[0]).unwrap(),
+                        bloom_filter: decode::as_bytes(&values[1]).unwrap()
                     }
 
                 })
                 .collect();
 
         }
-
-        println!(" * tables: {}", store.tables.len());
 
         Ok(store)
     

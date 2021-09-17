@@ -3,22 +3,23 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
+use stellar_notation::{ encode };
+
+use crate::linked_list;
 use crate::query::{ compaction, flush };
 use crate::Store;
-
-use stellar_notation::{ encoding };
 
 pub fn run(store: &mut Store, key: &str, value: &str) -> Result<(), Box<dyn Error>> {
 
     store.cache.push((key.to_string(), value.to_string()));
 
-    encoding::object(key, value)
+    linked_list::serialize::object(key, value)
         .iter()
         .for_each(|x| store.cache_buffer.push(*x));
 
     let store_path = format!("./neutrondb/{}", store.name);
 
-    let cache_path = format!("{}/cache.stellar", &store_path);
+    let cache_path = format!("{}/cache.ndbl", &store_path);
 
     fs::write(&cache_path, &store.cache_buffer)?;
 
@@ -44,7 +45,7 @@ pub fn run(store: &mut Store, key: &str, value: &str) -> Result<(), Box<dyn Erro
             
             store.graves.retain(|x| x != key);
 
-            let graves_path = format!("{}/graves.stellar", &store_path);
+            let graves_path = format!("{}/graves.ndbl", &store_path);
 
             if store.graves.is_empty() {
                 if Path::new(&graves_path).is_file() {
@@ -53,12 +54,12 @@ pub fn run(store: &mut Store, key: &str, value: &str) -> Result<(), Box<dyn Erro
 
             } else {
 
-                let graves_group: Vec<(String, String)> = store.graves
+                let grave_list: Vec<(String, String)> = store.graves
                     .iter()
-                    .map(|x| (x.to_string(), encoding::u128(&0)))
+                    .map(|x| (x.to_string(), encode::u8(&0)))
                     .collect();
 
-                let graves_buffer = encoding::group(graves_group);
+                let graves_buffer = linked_list::serialize::list(&grave_list);
 
                 fs::write(&graves_path, &graves_buffer)?;
             

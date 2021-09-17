@@ -2,9 +2,10 @@
 use std::error::Error;
 use std::fs;
 
+use crate::linked_list;
 use crate::Store;
 
-use stellar_notation::{ encoding };
+use stellar_notation::{ encode };
 
 pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
 
@@ -22,20 +23,20 @@ pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
             store.cache.retain(|x| x.0 != key);
 
             if store.cache.is_empty() {
-                let cache_path = format!("{}/cache.stellar", &store_path);
+                let cache_path = format!("{}/cache.ndbl", &store_path);
                 fs::remove_file(&cache_path)?;
 
             }
 
             store.graves.push(key.to_string());
 
-            let graves_path = format!("{}/graves.stellar", &store_path);
+            let graves_path = format!("{}/graves.ndbl", &store_path);
 
-            let graves_group: Vec<(String, String)> = store.graves.iter()
-                .map(|x| (x.to_string(), encoding::u128(&0)))
+            let grave_list: Vec<(String, String)> = store.graves.iter()
+                .map(|x| (x.to_string(), encode::u8(&0)))
                 .collect();
 
-            let graves_buffer = encoding::group(graves_group);
+            let graves_buffer = linked_list::serialize::list(&grave_list);
 
             fs::write(&graves_path, &graves_buffer)?;
 
