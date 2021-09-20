@@ -62,8 +62,6 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
 
                     let values: Vec<String> = decode::as_list(&x.1).unwrap();
 
-                    println!(" * level: {:?}", decode::as_u8(&values[0]).unwrap());
-
                     List {
                         name: x.0.to_string(),
                         level: decode::as_u8(&values[0]).unwrap(),

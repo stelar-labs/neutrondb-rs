@@ -9,7 +9,8 @@ use stellar_notation::{ encode };
 
 pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
 
-    let grave_query = store.graves.iter()
+    let grave_query = store.graves
+        .iter()
         .find(|x| x == &key);
 
     match grave_query {
@@ -23,7 +24,9 @@ pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
             store.cache.retain(|x| x.0 != key);
 
             if store.cache.is_empty() {
+
                 let cache_path = format!("{}/cache.ndbl", &store_path);
+                
                 fs::remove_file(&cache_path)?;
 
             }
@@ -32,7 +35,8 @@ pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
 
             let graves_path = format!("{}/graves.ndbl", &store_path);
 
-            let grave_list: Vec<(String, String)> = store.graves.iter()
+            let grave_list: Vec<(String, String)> = store.graves
+                .iter()
                 .map(|x| (x.to_string(), encode::u8(&0)))
                 .collect();
 

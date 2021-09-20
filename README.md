@@ -1,13 +1,13 @@
 
 # NeutronDB Rust
 
-Rust Implementation of NeutronDB, LSM-Tree String Key-Value Store.
+Rust Implementation of NeutronDB, LSM-Tree Key-Value Store.
 
 ## Usage
 
 ```
 
-neutrondb = "0.9.16"
+neutrondb = "0.9.17"
 
 ```
 

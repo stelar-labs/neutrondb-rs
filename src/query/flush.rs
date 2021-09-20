@@ -19,7 +19,9 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
     let level_1_path = format!("{}/level_1", &store_path);
 
     if Path::new(&level_1_path).is_dir() == false {
+
         fs::create_dir(&level_1_path)?;
+        
     }
 
     store.cache.reverse();

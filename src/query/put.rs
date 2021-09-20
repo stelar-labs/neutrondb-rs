@@ -30,6 +30,7 @@ pub fn run(store: &mut Store, key: &str, value: &str) -> Result<(), Box<dyn Erro
         fs::remove_file(&cache_path)?;
 
         store.cache.clear();
+
         store.cache_buffer.clear();
 
         compaction::run(store)?;
@@ -48,8 +49,11 @@ pub fn run(store: &mut Store, key: &str, value: &str) -> Result<(), Box<dyn Erro
             let graves_path = format!("{}/graves.ndbl", &store_path);
 
             if store.graves.is_empty() {
+
                 if Path::new(&graves_path).is_file() {
+
                     fs::remove_file(graves_path)?;
+                    
                 }
 
             } else {
