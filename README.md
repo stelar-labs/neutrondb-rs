@@ -3,8 +3,6 @@
 
 NeutronDB is a Log-structured merge-tree key-value store library written in Rust.
 
-Main Author - [Rey](https://github.com/itsmereystar)
-
 ## Usage
 
 In Cargo.toml
