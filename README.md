@@ -1,21 +1,38 @@
 
 # NeutronDB Rust
 
-Rust Implementation of NeutronDB, LSM-Tree Key-Value Store.
+NeutronDB is a Log-structured merge-tree key-value store library written in Rust.
+
+Main Author - [Rey](https://github.com/itsmereystar)
 
 ## Usage
 
+In Cargo.toml
 ```
 
-neutrondb = "0.9.17"
+[dependencies]
+neutrondb = "0.9.18"
 
 ```
 
+In your rust file
 ```
 
 use neutrondb::Store;
 
 ```
+
+In .gitignore
+```
+
+/neutrondb/
+
+```
+
+## Features
+- Keys and Values are UTF-8 strings of any length.
+- Data is stored unsorted in linked lists.
+- There are 5 functions new, put, get, get_all, delete.
 
 ## Functions
 
@@ -68,6 +85,6 @@ accs.delete("user1")?;
 - Error Correction
 
 ## Contribution
-Any interested party can contact me on twitter @itsmereystar or email itsmereystar@protonmail.com
+Pull requests, bug reports and any kind of suggestion are welcome.
 
-2021-09-11
+2021-09-23

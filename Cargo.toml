@@ -1,10 +1,10 @@
 
 [package]
 name = "neutrondb"
-version = "0.9.17"
+version = "0.9.18"
 edition = "2018"
 license = "MIT"
-description = "Rust Implementation of NeutronDB, LSM-Tree Key-Value Store."
+description = "NeutronDB is a Log-structured merge-tree key-value store library written in Rust."
 repository = "https://github.com/seg-software/rust-neutrondb"
 readme = "README.md"
 
