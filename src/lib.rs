@@ -35,7 +35,7 @@ pub struct Store {
 
 impl Store {
 
-    pub fn new(name: &str) -> Result<Store, Box<dyn Error>> {
+    pub fn connect(name: &str) -> Result<Store, Box<dyn Error>> {
         init::run(name)
     }
 

@@ -9,7 +9,7 @@ In Cargo.toml
 ```
 
 [dependencies]
-neutrondb = "0.9.18"
+neutrondb = "0.9.19"
 
 ```
 
@@ -30,15 +30,15 @@ In .gitignore
 ## Features
 - Keys and Values are UTF-8 strings of any length.
 - Data is stored unsorted in linked lists.
-- There are 5 functions new, put, get, get_all, delete.
+- There are 5 functions connect, put, get, get_all, delete.
 
 ## Functions
 
-### New
+### Connect
 
 ```
 
-let mut accs = Store::new("accs")?;
+let mut accs = Store::connect("accs")?;
 
 ```
 
@@ -85,4 +85,4 @@ accs.delete("user1")?;
 ## Contribution
 Pull requests, bug reports and any kind of suggestion are welcome.
 
-2021-09-23
+2021-10-06
