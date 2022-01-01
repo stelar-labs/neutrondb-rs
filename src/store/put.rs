@@ -5,19 +5,19 @@ use std::path::Path;
 
 use stellar_notation::{ encode };
 
-use crate::linked_list;
-use crate::query::{ compaction, flush };
+use crate::list;
+use crate::store::{ compaction, flush };
 use crate::Store;
 
 pub fn run(store: &mut Store, key: &str, value: &str) -> Result<(), Box<dyn Error>> {
 
     store.cache.push((key.to_string(), value.to_string()));
 
-    linked_list::serialize::object(key, value)
+    list::serialize::object(key, value)
         .iter()
         .for_each(|x| store.cache_buffer.push(*x));
 
-    let store_path = format!("./neutrondb/{}", store.name);
+    let store_path = format!("./ndb/{}", store.name);
 
     let cache_path = format!("{}/cache.ndbl", &store_path);
 
@@ -63,7 +63,7 @@ pub fn run(store: &mut Store, key: &str, value: &str) -> Result<(), Box<dyn Erro
                     .map(|x| (x.to_string(), encode::u8(&0)))
                     .collect();
 
-                let graves_buffer = linked_list::serialize::list(&grave_list);
+                let graves_buffer = list::serialize::list(&grave_list);
 
                 fs::write(&graves_path, &graves_buffer)?;
             

@@ -7,14 +7,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use stellar_notation::{ encode };
 
-use crate::linked_list;
+use crate::list;
 use crate::Store;
 use crate::List;
-use crate::query::bloom_filter;
+use crate::store::bloom_filter;
 
 pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
 
-    let store_path = format!("./neutrondb/{}", store.name);
+    let store_path = format!("./ndb/{}", store.name);
 
     let level_1_path = format!("{}/level_1", &store_path);
 
@@ -32,7 +32,7 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
 
     let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 
-    let sorted_buffer: Vec<u8> = linked_list::serialize::list(&store.cache);
+    let sorted_buffer: Vec<u8> = list::serialize::list(&store.cache);
 
     let sorted_path = format!("{}/{}.ndbs", &level_1_path, &current_time);
 
@@ -66,7 +66,7 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
         })
         .collect();
 
-    let lists_buffer = linked_list::serialize::list(&lists);
+    let lists_buffer = list::serialize::list(&lists);
 
     let lists_path = format!("{}/lists.ndbl", &store_path);
 

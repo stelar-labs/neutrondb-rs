@@ -2,7 +2,7 @@
 use std::error::Error;
 use std::fs;
 
-use crate::linked_list;
+use crate::list;
 use crate::Store;
 
 use stellar_notation::{ encode };
@@ -19,7 +19,7 @@ pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
         
         None => {
 
-            let store_path = format!("./neutrondb/{}", store.name);
+            let store_path = format!("./ndb/{}", store.name);
 
             store.cache.retain(|x| x.0 != key);
 
@@ -40,7 +40,7 @@ pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
                 .map(|x| (x.to_string(), encode::u8(&0)))
                 .collect();
 
-            let graves_buffer = linked_list::serialize::list(&grave_list);
+            let graves_buffer = list::serialize::list(&grave_list);
 
             fs::write(&graves_path, &graves_buffer)?;
 

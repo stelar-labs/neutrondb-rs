@@ -2,22 +2,22 @@
 use std::error::Error;
 use std::fs;
 
-use crate::linked_list;
+use crate::list;
 use crate::Store;
 
 pub fn run(store: &Store) -> Result<Option<Vec<(String, String)>>, Box<dyn Error>> {
 
-    let store_path = format!("./neutrondb/{}", store.name);
+    let store_path = format!("./ndb/{}", store.name);
 
     let mut all_list: Vec<(String, String)> = vec![];
 
     for list in &store.lists {
 
-        let list_path = format!("{}/level_{}/{}.ndbs", &store_path, list.level, list.name);
+        let list_path = format!("{}/level_{}/{}.ndbl", &store_path, list.level, list.name);
 
         let list_buffer = fs::read(&list_path)?;
 
-        all_list = [all_list, linked_list::deserialize::list(&list_buffer)?].concat();
+        all_list = [all_list, list::deserialize::list(&list_buffer)?].concat();
 
     }
 

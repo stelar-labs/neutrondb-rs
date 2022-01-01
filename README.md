@@ -5,15 +5,17 @@ NeutronDB is a Log-structured merge-tree key-value store library written in Rust
 
 ## Usage
 
-In Cargo.toml
+In your `Cargo.toml`:
+
 ```
 
 [dependencies]
-neutrondb = "0.9.19"
+neutrondb = "1.0.0"
 
 ```
 
-In your rust file
+In your Rust file:
+
 ```
 
 use neutrondb::Store;
@@ -21,20 +23,21 @@ use neutrondb::Store;
 ```
 
 In .gitignore
+
 ```
 
-/neutrondb/
+/ndb/
 
 ```
 
 ## Features
 - Keys and Values are UTF-8 strings of any length.
-- Data is stored unsorted in linked lists.
-- There are 5 functions connect, put, get, get_all, delete.
+- Data is stored in linked lists.
+- There are five functions connect, put, get, get_all, and delete.
 
-## Functions
+## API
 
-### Connect
+`Connect`
 
 ```
 
@@ -42,7 +45,7 @@ let mut accs = Store::connect("accs")?;
 
 ```
 
-### Put
+`Put`
 
 ```
 
@@ -50,7 +53,7 @@ accs.put("user1", "balance1")?;
 
 ```
 
-### Get
+`Get`
 
 ```
 
@@ -58,7 +61,7 @@ let balance1: String = accs.get("user1")?;
 
 ```
 
-### Get All
+`Get All`
 
 ```
 
@@ -66,7 +69,7 @@ let accounts: Vec<(String, String)> = accs.get_all()?;
 
 ```
 
-### Delete
+`Delete`
 
 ```
 
@@ -74,7 +77,7 @@ accs.delete("user1")?;
 
 ```
 
-## Future Topics
+## Future
 - Increase Bloom Filter Size
 - Use Sorted Lists on Merged Lists
 - Read/Write Performance through multi-threading and batching
@@ -85,4 +88,4 @@ accs.delete("user1")?;
 ## Contribution
 Pull requests, bug reports and any kind of suggestion are welcome.
 
-2021-10-06
+2022-01-01

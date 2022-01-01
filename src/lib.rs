@@ -2,9 +2,8 @@
 use std::error::Error;
 use std::fmt;
 
-mod init;
-mod linked_list;
-mod query;
+mod list;
+mod store;
 
 #[derive(Debug)]
 struct CustomError(String);
@@ -36,23 +35,23 @@ pub struct Store {
 impl Store {
 
     pub fn connect(name: &str) -> Result<Store, Box<dyn Error>> {
-        init::run(name)
+        store::init::run(name)
     }
 
     pub fn put(&mut self, key: &str, value: &str) -> Result<(), Box<dyn Error>> {
-        query::put::run(self, key, value)
+        store::put::run(self, key, value)
     }
 
     pub fn get(&self, key: &str) -> Result<Option<String>, Box<dyn Error>> {
-        query::get::run(self, key)
+        store::get::run(self, key)
     }
 
     pub fn get_all(&self) -> Result<Option<Vec<(String, String)>>, Box<dyn Error>> {
-        query::get_all::run(self)
+        store::get_all::run(self)
     }
 
     pub fn delete(&mut self, key: &str) -> Result<(), Box<dyn Error>> {
-        query::delete::run(self, key)
+        store::delete::run(self, key)
     }
 
 }

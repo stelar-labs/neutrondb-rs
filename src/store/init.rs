@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-use crate::linked_list;
+use crate::list;
 use crate::List;
 use crate::Store;
 
@@ -11,7 +11,7 @@ use stellar_notation::{ decode };
 
 pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
 
-    let store_path = format!("./neutrondb/{}", name);
+    let store_path = format!("./ndb/{}", name);
 
     let mut store = Store {
         name: String::from(name),
@@ -31,7 +31,7 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
 
         if Path::new(&cache_path).is_file() {
             store.cache_buffer = fs::read(&cache_path)?;
-            store.cache = linked_list::deserialize::list(&store.cache_buffer)?;
+            store.cache = list::deserialize::list(&store.cache_buffer)?;
 
         }
 
@@ -39,7 +39,7 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
 
         if Path::new(&graves_path).is_file() {
             let graves_buffer: Vec<u8> = fs::read(&graves_path)?;
-            let grave_objects: Vec<(String, String)> = linked_list::deserialize::list(&graves_buffer)?;
+            let grave_objects: Vec<(String, String)> = list::deserialize::list(&graves_buffer)?;
 
             store.graves = grave_objects
                 .iter()
@@ -54,7 +54,7 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
 
             let lists_buffer: Vec<u8> = fs::read(&lists_path)?;
 
-            let lists: Vec<(String, String)> = linked_list::deserialize::list(&lists_buffer)?;
+            let lists: Vec<(String, String)> = list::deserialize::list(&lists_buffer)?;
 
             store.lists = lists
                 .iter()

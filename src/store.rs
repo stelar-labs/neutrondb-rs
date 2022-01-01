@@ -6,3 +6,4 @@ pub mod flush;
 pub mod get_all;
 pub mod get;
 pub mod put;
+pub mod init;

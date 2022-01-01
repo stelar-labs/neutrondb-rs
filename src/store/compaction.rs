@@ -6,14 +6,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use stellar_notation::{ encode };
 
-use crate::linked_list;
+use crate::list;
 use crate::Store;
 use crate::List;
-use crate::query::bloom_filter;
+use crate::store::bloom_filter;
 
 pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
     
-    let store_path = format!("./neutrondb/{}", store.name);
+    let store_path = format!("./ndb/{}", store.name);
 
     for level in 1..=4 {
 
@@ -40,7 +40,7 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
             let lists_vec: Vec<Vec<(String, String)>> = list_paths
                 .iter()
                 .map(|x| fs::read(x).unwrap())
-                .map(|x| linked_list::deserialize::list(&x).unwrap())
+                .map(|x| list::deserialize::list(&x).unwrap())
                 .collect();
 
             let mut merged_list = lists_vec.concat();
@@ -57,7 +57,7 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
                 .iter()
                 .fold(vec![0; 32], |acc, x| bloom_filter::insert(acc, &x.0));
 
-            let merged_list_buffer: Vec<u8> = linked_list::serialize::list(&merged_list);
+            let merged_list_buffer: Vec<u8> = list::serialize::list(&merged_list);
 
             let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
 
@@ -97,7 +97,7 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
                 })
                 .collect();
 
-            let updated_lists_buffer: Vec<u8> = linked_list::serialize::list(&updated_lists);
+            let updated_lists_buffer: Vec<u8> = list::serialize::list(&updated_lists);
 
             let lists_path = format!("{}/lists.ndbl", &store_path);
 

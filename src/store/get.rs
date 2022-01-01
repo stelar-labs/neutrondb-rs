@@ -2,8 +2,8 @@
 use std::error::Error;
 use std::fs;
 
-use crate::linked_list;
-use crate::query::bloom_filter;
+use crate::list;
+use crate::store::bloom_filter;
 use crate::Store;
 
 pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
@@ -34,7 +34,7 @@ pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
 
                 None => {
 
-                    let store_path = format!("./neutrondb/{}", store.name);
+                    let store_path = format!("./ndb/{}", store.name);
 
                     let mut lists = store.lists.clone();
                     
@@ -44,11 +44,11 @@ pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
 
                         if bloom_filter::lookup(&list.bloom_filter, &key) {
 
-                            let list_path = format!("{}/level_{}/{}.ndbs", &store_path, list.level, list.name);
+                            let list_path = format!("{}/level_{}/{}.ndbl", &store_path, list.level, list.name);
 
                             let list_buffer = fs::read(&list_path)?;
 
-                            let list = linked_list::deserialize::list(&list_buffer)?;
+                            let list = list::deserialize::list(&list_buffer)?;
 
                             let list_query = list.iter()
                                 .find(|x| x.0 == key);
