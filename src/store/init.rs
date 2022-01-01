@@ -16,7 +16,6 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
     let mut store = Store {
         name: String::from(name),
         cache: vec![],
-        cache_buffer: vec![],
         graves: vec![],
         lists: vec![]
     };
@@ -30,9 +29,8 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
         let cache_path = format!("{}/cache.ndbl", &store_path);
 
         if Path::new(&cache_path).is_file() {
-            store.cache_buffer = fs::read(&cache_path)?;
-            store.cache = list::deserialize::list(&store.cache_buffer)?;
-
+            let cache_buffer = fs::read(&cache_path)?;
+            store.cache = list::deserialize::list(&cache_buffer)?;
         }
 
         let graves_path = format!("{}/graves.ndbl", &store_path);
@@ -48,7 +46,7 @@ pub fn run(name: &str) -> Result<Store, Box<dyn Error>> {
 
         }
 
-        let lists_path = format!("{}/lists.ndbl", &store_path);
+        let lists_path = format!("{}/meta.ndbl", &store_path);
         
         if Path::new(&lists_path).is_file() {
 

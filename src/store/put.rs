@@ -13,25 +13,25 @@ pub fn run(store: &mut Store, key: &str, value: &str) -> Result<(), Box<dyn Erro
 
     store.cache.push((key.to_string(), value.to_string()));
 
-    list::serialize::object(key, value)
-        .iter()
-        .for_each(|x| store.cache_buffer.push(*x));
-
     let store_path = format!("./ndb/{}", store.name);
 
     let cache_path = format!("{}/cache.ndbl", &store_path);
 
-    fs::write(&cache_path, &store.cache_buffer)?;
+    println!(" * cache: {:?}", store.cache);
 
-    if store.cache_buffer.len() > 2097152 {
+    let serialized_cache: Vec<u8> = list::serialize::list(&store.cache);
+
+    println!(" * serialized_cache: {:?}", serialized_cache);
+
+    fs::write(&cache_path, &serialized_cache)?;
+
+    if serialized_cache.len() > 2097152 {
 
         flush::run(store)?;
 
         fs::remove_file(&cache_path)?;
 
         store.cache.clear();
-
-        store.cache_buffer.clear();
 
         compaction::run(store)?;
 

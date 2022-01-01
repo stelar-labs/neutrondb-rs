@@ -60,34 +60,68 @@ pub fn list(bytes: &Vec<u8>) -> Result<Vec<(String, String)>, Box<dyn Error>> {
 
         let object_length_size: u8 = u8::from_le_bytes([bytes[i]]);
 
+        i += 1;
+
         match object_length_size {
             1 => {
-                let object_length: usize = u8::from_le_bytes([bytes[i + 1]]) as usize;
-                let object_bytes: Vec<u8> = bytes[i..i+object_length].to_vec();
+
+                let object_length: usize = u8::from_le_bytes([bytes[i]]) as usize;
+                
+                i += 1;
+
+                let object_bytes: Vec<u8> = bytes[i..i + object_length].to_vec();
+                
+                i += object_length;
+
                 let key_value: (String, String) = object(object_bytes).unwrap();
+
                 res.push(key_value);
-                i += 1 + object_length
+
             },
             2 => {
-                let object_length: usize = u8::from_le_bytes([bytes[i + 1]]) as usize;
+
+                let object_length: usize = u16::from_le_bytes([bytes[1], bytes[2]]) as usize;
+
+                i += 2;
+
                 let object_bytes: Vec<u8> = bytes[i..i+object_length].to_vec();
+
+                i += object_length;
+
                 let key_value: (String, String) = object(object_bytes).unwrap();
-                res.push(key_value);
-                i += 2 + object_length
+
+                res.push(key_value)
+
             },
             4 => {
-                let object_length: usize = u8::from_le_bytes([bytes[i + 1]]) as usize;
-                let object_bytes: Vec<u8> = bytes[i..i+object_length].to_vec();
+
+                let object_length: usize = u32::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]) as usize;
+
+                i += 4;
+
+                let object_bytes: Vec<u8> = bytes[i..i + object_length].to_vec();
+
+                i += object_length;
+
                 let key_value: (String, String) = object(object_bytes).unwrap();
-                res.push(key_value);
-                i += 4 + object_length
+
+                res.push(key_value)
+                
             },
             8 => {
-                let object_length: usize = u8::from_le_bytes([bytes[i + 1]]) as usize;
-                let object_bytes: Vec<u8> = bytes[i..i+object_length].to_vec();
+
+                let object_length: usize = u64::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8]]) as usize;
+
+                i += 8;
+
+                let object_bytes: Vec<u8> = bytes[i..i + object_length].to_vec();
+
+                i += object_length;
+
                 let key_value: (String, String) = object(object_bytes).unwrap();
-                res.push(key_value);
-                i += 8 + object_length
+                
+                res.push(key_value)
+                
             },
             _ => ()
         }

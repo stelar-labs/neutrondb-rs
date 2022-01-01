@@ -31,9 +31,7 @@ pub fn object(key: &str, value: &str) -> Vec<u8> {
 
         res = [res, key_length_size.to_le_bytes().to_vec()].concat();
 
-    }
-    
-    else {
+    } else {
 
         res = [res, 8_u64.to_le_bytes().to_vec()].concat();
 
@@ -69,7 +67,7 @@ pub fn list(objects: &Vec<(String, String)>) -> Vec<u8> {
 
                 let object_length_size: u8 = object_length as u8;
 
-                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat();
+                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat()
 
             } else if object_length < 65536 {
 
@@ -77,7 +75,7 @@ pub fn list(objects: &Vec<(String, String)>) -> Vec<u8> {
 
                 let object_length_size: u16 = object_length as u16;
 
-                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat();
+                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat()
 
             } else if object_length < 4294967296 {
 
@@ -85,18 +83,19 @@ pub fn list(objects: &Vec<(String, String)>) -> Vec<u8> {
 
                 let object_length_size: u32 = object_length as u32;
 
-                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat();
-
+                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat()
 
             } else {
-
+                
                 res = [res.clone(), 8_u64.to_le_bytes().to_vec()].concat();
 
                 let object_length_size: u64 = object_length as u64;
 
-                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat();
+                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat()
 
             }
+
+            res = [res.clone(), object_bytes].concat();
 
         });
 

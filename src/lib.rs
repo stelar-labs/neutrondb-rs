@@ -27,7 +27,6 @@ struct List {
 pub struct Store {
     name: String,
     cache: Vec<(String, String)>,
-    cache_buffer: Vec<u8>,
     graves: Vec<String>,
     lists: Vec<List>
 }
