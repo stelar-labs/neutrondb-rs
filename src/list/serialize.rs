@@ -1,104 +1,112 @@
 
-pub fn object(key: &str, value: &str) -> Vec<u8> {
+pub fn list(arg: &Vec<(String, String)>) -> Vec<u8> {
 
-    let mut res: Vec<u8> = Vec::new();
+    let mut index: Vec<(Vec<u8>, u64)> = Vec::new();
+
+    let mut val_res: Vec<u8> = Vec::new();
+
+    for obj in arg {
+
+        let mut key_res: Vec<u8> = Vec::new();
+
+        let key_bytes: Vec<u8> = obj.0.to_string().into_bytes();
+
+        let key_length: usize = key_bytes.len();
+
+        if key_length < 256 {
+
+            1_u8.to_le_bytes().to_vec().iter().for_each(|&x| key_res.push(x));
     
-    let key_bytes: Vec<u8> = key.to_string().into_bytes();
-
-    let key_length: usize = key_bytes.len();
-
-    if key_length < 256 {
-
-        res = [res, 1_u8.to_le_bytes().to_vec()].concat();
-
-        let key_length_size: u8 = key_length as u8;
-
-        res = [res, key_length_size.to_le_bytes().to_vec()].concat();
+            let key_length_size: u8 = key_length as u8;
     
-    } else if key_length < 65536 {
+            key_length_size.to_le_bytes().to_vec().iter().for_each(|&x| key_res.push(x))
+        
+        } else if key_length < 65536 {
+    
+            2_u8.to_le_bytes().to_vec().iter().for_each(|&x| key_res.push(x));
+    
+            let key_length_size: u16 = key_length as u16;
+    
+            key_length_size.to_le_bytes().to_vec().iter().for_each(|&x| key_res.push(x))
+    
+        } else if key_length < 4294967296 {
+    
+            4_u32.to_le_bytes().to_vec().iter().for_each(|&x| key_res.push(x));
+    
+            let key_length_size: u32 = key_length as u32;
+    
+            key_length_size.to_le_bytes().to_vec().iter().for_each(|&x| key_res.push(x))
+    
+        } else {
+    
+            8_u64.to_le_bytes().to_vec().iter().for_each(|&x| key_res.push(x));
+    
+            let key_length_size: u64 = key_length as u64;
+    
+            key_length_size.to_le_bytes().to_vec().iter().for_each(|&x| key_res.push(x))
+    
+        }
+        
+        key_bytes.iter().for_each(|&x| key_res.push(x));
 
-        res = [res, 2_u8.to_le_bytes().to_vec()].concat();
+        index.push((key_res, val_res.len() as u64));
 
-        let key_length_size: u16 = key_length as u16;
+        let val_bytes: Vec<u8> = obj.1.to_string().into_bytes();
 
-        res = [res, key_length_size.to_le_bytes().to_vec()].concat();
+        let val_length: usize = val_bytes.len();
 
-    } else if key_length < 4294967296 {
+        if val_length < 256 {
 
-        res = [res, 4_u32.to_le_bytes().to_vec()].concat();
+            1_u8.to_le_bytes().to_vec().iter().for_each(|&x| val_res.push(x));
+    
+            let val_length_size: u8 = val_length as u8;
+    
+            val_length_size.to_le_bytes().to_vec().iter().for_each(|&x| val_res.push(x))
+        
+        } else if val_length < 65536 {
+    
+            2_u8.to_le_bytes().to_vec().iter().for_each(|&x| val_res.push(x));
+    
+            let val_length_size: u16 = val_length as u16;
+    
+            val_length_size.to_le_bytes().to_vec().iter().for_each(|&x| val_res.push(x))
+    
+        } else if val_length < 4294967296 {
+    
+            4_u32.to_le_bytes().to_vec().iter().for_each(|&x| val_res.push(x));
+    
+            let val_length_size: u32 = val_length as u32;
+    
+            val_length_size.to_le_bytes().to_vec().iter().for_each(|&x| val_res.push(x))
+    
+        } else {
+    
+            8_u64.to_le_bytes().to_vec().iter().for_each(|&x| val_res.push(x));
+    
+            let val_length_size: u64 = val_length as u64;
+    
+            val_length_size.to_le_bytes().to_vec().iter().for_each(|&x| val_res.push(x))
+    
+        }
 
-        let key_length_size: u32 = key_length as u32;
-
-        res = [res, key_length_size.to_le_bytes().to_vec()].concat();
-
-    } else {
-
-        res = [res, 8_u64.to_le_bytes().to_vec()].concat();
-
-        let key_length_size: u64 = key_length as u64;
-
-        res = [res, key_length_size.to_le_bytes().to_vec()].concat();
+        val_bytes.iter().for_each(|&x| val_res.push(x))
 
     }
 
-    let value_bytes: Vec<u8> = value.to_string().into_bytes();
+    let mut index_size: u64 = index.iter().fold(0, | acc, x | acc + (x.0.len() as u64 + 8));
 
-    res = [res, key_bytes, value_bytes].concat();
+    let list_start: Vec<u8> = [vec![1], index_size.to_le_bytes().to_vec()].concat();
 
-    res
+    index_size += 9;
 
-}
+    let list_header: Vec<u8> = index.iter().fold(list_start, | acc, x | {
 
-pub fn list(objects: &Vec<(String, String)>) -> Vec<u8> {
+        let key_index: u64 = x.1 + index_size;
 
-    let mut res: Vec<u8> = Vec::new();
+        [acc, x.0.to_owned(), key_index.to_le_bytes().to_vec()].concat()
 
-    objects
-        .iter()
-        .for_each(|x| {
+    });
 
-            let object_bytes: Vec<u8> = object(&x.0, &x.1);
-
-            let object_length: usize = object_bytes.len();
-
-            if object_length < 256 {
-
-                res = [res.clone(), 1_u8.to_le_bytes().to_vec()].concat();
-
-                let object_length_size: u8 = object_length as u8;
-
-                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat()
-
-            } else if object_length < 65536 {
-
-                res = [res.clone(), 2_u8.to_le_bytes().to_vec()].concat();
-
-                let object_length_size: u16 = object_length as u16;
-
-                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat()
-
-            } else if object_length < 4294967296 {
-
-                res = [res.clone(), 4_u32.to_le_bytes().to_vec()].concat();
-
-                let object_length_size: u32 = object_length as u32;
-
-                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat()
-
-            } else {
-                
-                res = [res.clone(), 8_u64.to_le_bytes().to_vec()].concat();
-
-                let object_length_size: u64 = object_length as u64;
-
-                res = [res.clone(), object_length_size.to_le_bytes().to_vec()].concat()
-
-            }
-
-            res = [res.clone(), object_bytes].concat();
-
-        });
-
-    res
+    [list_header, val_res].concat()
 
 }

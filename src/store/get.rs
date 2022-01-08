@@ -1,14 +1,10 @@
-
-use std::error::Error;
-use std::fs;
-
 use crate::list;
 use crate::store::bloom_filter;
 use crate::Store;
+use std::error::Error;
+use std::path::Path;
 
 pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
-
-    let mut result: Option<String> = None;
 
     let grave_query = store.graves
         .iter()
@@ -16,7 +12,7 @@ pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
 
     match grave_query {
 
-        Some(_) => (),
+        Some(_) => Ok(None),
 
         None => {
 
@@ -30,35 +26,27 @@ pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
 
             match cache_query {
 
-                Some(res) => result = Some(res.1.to_owned()),
+                Some(r) => Ok(Some(r.1.to_owned())),
 
                 None => {
 
                     let store_path = format!("./ndb/{}", store.name);
 
-                    let mut lists = store.lists.clone();
+                    let mut search_res: Option<String> = None;
                     
-                    lists.reverse();
-                    
-                    for list in lists {
+                    for list in store.lists.clone() {
 
                         if bloom_filter::lookup(&list.bloom_filter, &key) {
 
-                            let list_path = format!("{}/level_{}/{}.ndbl", &store_path, list.level, list.name);
+                            let list_path_str: String = format!("{}/level_{}/{}.neutron", &store_path, list.level, list.name);
 
-                            let list_buffer = fs::read(&list_path)?;
+                            let list_path: &Path = Path::new(&list_path_str);
 
-                            let list = list::deserialize::list(&list_buffer)?;
+                            let key_query = list::search::key(list_path, key)?;
 
-                            let list_query = list.iter()
-                                .find(|x| x.0 == key);
+                            match key_query {
 
-                            match list_query {
-
-                                Some(res) => {
-                                    result = Some(res.1.to_owned());
-                                    break
-                                },
+                                Some(r) => search_res = Some(r),
 
                                 None => ()
 
@@ -68,13 +56,13 @@ pub fn run(store: &Store, key: &str) -> Result<Option<String>, Box<dyn Error>> {
 
                     }
 
+                    Ok(search_res)
+
                 }
             }
 
         }
 
     }
-
-    return Ok(result)
 
 }

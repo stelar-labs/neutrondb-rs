@@ -1,129 +1,99 @@
 
+use std::convert::TryInto;
 use std::error::Error;
 use std::str;
 
-use crate::CustomError;
-
-pub fn object(bytes: Vec<u8>) -> Result<(String, String), Box<dyn Error>> {
-
-    let key_length_size: u8 = u8::from_le_bytes([bytes[0]]);
-
-    match key_length_size {
-
-        1 => {
-            let key_length: usize = u8::from_le_bytes([bytes[1]]) as usize;
-            let key_length_end = key_length + 2;
-            let key_string = str::from_utf8(&bytes[2..key_length_end]).unwrap().to_string();
-            let value_string = str::from_utf8(&bytes[key_length_end..]).unwrap().to_string();
-            Ok((key_string, value_string))
-        },
-
-        2 => {
-            let key_length: usize = u16::from_le_bytes([bytes[1], bytes[2]]) as usize;
-            let key_length_end = key_length + 3;
-            let key_string = str::from_utf8(&bytes[3..key_length_end]).unwrap().to_string();
-            let value_string = str::from_utf8(&bytes[key_length_end..]).unwrap().to_string();
-            Ok((key_string, value_string))
-        },
-
-        4 => {
-            let key_length: usize = u32::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]) as usize;
-            let key_length_end = key_length + 5;
-            let key_string = str::from_utf8(&bytes[5..key_length_end]).unwrap().to_string();
-            let value_string = str::from_utf8(&bytes[key_length_end..]).unwrap().to_string();
-            Ok((key_string, value_string))
-        },
-
-        8 => {
-            let key_length: usize = u64::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8]]) as usize;
-            let key_length_end = key_length + 9;
-            let key_string = str::from_utf8(&bytes[9..key_length_end]).unwrap().to_string();
-            let value_string = str::from_utf8(&bytes[key_length_end..]).unwrap().to_string();
-            Ok((key_string, value_string))
-        },
-
-        _ => {
-            Err(Box::new(CustomError("key length size unknown".into())))
-        }
-
-    }
-
-}
-
-pub fn list(bytes: &Vec<u8>) -> Result<Vec<(String, String)>, Box<dyn Error>> {
+pub fn list(arg: &Vec<u8>) -> Result<Vec<(String, String)>, Box<dyn Error>> {
 
     let mut res: Vec<(String, String)> = Vec::new();
 
-    let mut i: usize = 0;
+    if arg[0] == 1 {
 
-    while i < bytes.len() {
+        let index_size: usize = u64::from_le_bytes(arg[1..9].try_into().unwrap()) as usize;
 
-        let object_length_size: u8 = u8::from_le_bytes([bytes[i]]);
+        let index: Vec<u8> = arg[9..9 + index_size].to_vec();
 
-        i += 1;
+        let mut i = 0;
 
-        match object_length_size {
-            1 => {
+        while i < index.len() {
 
-                let object_length: usize = u8::from_le_bytes([bytes[i]]) as usize;
+            let key_length_size: u8 = u8::from_le_bytes([index[i]]);
+
+            i += 1;
+            
+            let mut key_length: usize = 0;
+
+            match key_length_size {
+
+                1 => {
+                    key_length = u8::from_le_bytes([index[i]].try_into().unwrap()) as usize;
+                    i += 1;
+                },
+
+                2 => {
+                    key_length = u16::from_le_bytes(index[i..i + 2].try_into().unwrap()) as usize;
+                    i += 2;
+                },
+
+                4 => {
+                    key_length = u32::from_le_bytes(index[i..i + 4].try_into().unwrap()) as usize;
+                    i += 4;
+                },
+
+                8 => {
+                    key_length = u64::from_le_bytes(index[i..i + 8].try_into().unwrap()) as usize;
+                    i += 8;
+                },
+
+                _ => ()
+
+            }
+
+            let key: String = str::from_utf8(index[i..i + key_length].try_into().unwrap()).unwrap().to_string();
+            
+            i += key_length;
+
+            let mut value_index: usize = u64::from_le_bytes(index[i..i + 8].try_into().unwrap()) as usize;
+
+            i += 8;
+
+            let value_length_size: u8 = u8::from_le_bytes([arg[value_index]]);
+
+            value_index += 1;
+
+            let mut value_length: usize = 0;
+
+            match value_length_size {
                 
-                i += 1;
+                1 => {
+                    value_length = u8::from_le_bytes([arg[value_index]].try_into().unwrap()) as usize;
+                    value_index += 1;
+                },
 
-                let object_bytes: Vec<u8> = bytes[i..i + object_length].to_vec();
-                
-                i += object_length;
+                2 => {
+                    value_length = u16::from_le_bytes(arg[value_index..value_index + 2].try_into().unwrap()) as usize;
+                    value_index += 2;
+                },
 
-                let key_value: (String, String) = object(object_bytes).unwrap();
+                4 => {
+                    value_length = u32::from_le_bytes(arg[value_index..value_index + 4].try_into().unwrap()) as usize;
+                    value_index += 4;
+                },
 
-                res.push(key_value);
+                8 => {
+                    value_length = u64::from_le_bytes(arg[value_index..value_index + 8].try_into().unwrap()) as usize;
+                    value_index += 8;
+                },
 
-            },
-            2 => {
+                _ => ()
+            }
 
-                let object_length: usize = u16::from_le_bytes([bytes[1], bytes[2]]) as usize;
+            let value_bytes: Vec<u8> = arg[value_index..value_index + value_length].to_vec();
 
-                i += 2;
+            let value: String = str::from_utf8(&value_bytes).unwrap().to_string();
 
-                let object_bytes: Vec<u8> = bytes[i..i+object_length].to_vec();
+            res.push((key, value))
 
-                i += object_length;
-
-                let key_value: (String, String) = object(object_bytes).unwrap();
-
-                res.push(key_value)
-
-            },
-            4 => {
-
-                let object_length: usize = u32::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]) as usize;
-
-                i += 4;
-
-                let object_bytes: Vec<u8> = bytes[i..i + object_length].to_vec();
-
-                i += object_length;
-
-                let key_value: (String, String) = object(object_bytes).unwrap();
-
-                res.push(key_value)
-                
-            },
-            8 => {
-
-                let object_length: usize = u64::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8]]) as usize;
-
-                i += 8;
-
-                let object_bytes: Vec<u8> = bytes[i..i + object_length].to_vec();
-
-                i += object_length;
-
-                let key_value: (String, String) = object(object_bytes).unwrap();
-                
-                res.push(key_value)
-                
-            },
-            _ => ()
         }
 
     }

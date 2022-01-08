@@ -1,4 +1,4 @@
-
+use std::fs::File;
 use std::error::Error;
 use std::fmt;
 
@@ -17,18 +17,21 @@ impl fmt::Display for CustomError {
 impl Error for CustomError {}
 
 #[derive(Clone, Debug)]
-struct List {
+struct Metadata {
     name: String,
     level: u8,
-    bloom_filter: Vec<u8>
+    bloom_filter: Vec<u8>,
+    size: u64
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Store {
     name: String,
+    logs_file: File,
     cache: Vec<(String, String)>,
+    cache_size: u64,
     graves: Vec<String>,
-    lists: Vec<List>
+    lists: Vec<Metadata>
 }
 
 impl Store {

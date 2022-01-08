@@ -1,15 +1,17 @@
 
 use std::error::Error;
 use std::fs;
-use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use stellar_notation::{ encode };
+use astro_notation::{ encode };
 
 use crate::list;
 use crate::Store;
-use crate::List;
+use crate::Metadata;
 use crate::store::bloom_filter;
+use std::io::Write;
+use std::fs::OpenOptions;
+use std::path::Path;
 
 pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
     
@@ -17,96 +19,119 @@ pub fn run(store: &mut Store) -> Result<(), Box<dyn Error>> {
 
     for level in 1..=4 {
 
-        let mut level_lists: Vec<&List> = store.lists
+        let mut level_lists: Vec<&Metadata> = store.lists
             .iter()
             .filter(|x| x.level == level)
             .collect();
 
-        level_lists.sort_by_key(|x| x.name.to_string());
+        let level_size: u64 = level_lists.iter().fold( 0, | acc, x | acc + x.size );
 
-        if level_lists.len() == 5 {
+        let compaction_flag: bool = match level {
+            
+            1 => {
+                if level_size > 10000000 { true } else { false }
+            },
+
+            2 => {
+                if level_size > 100000000 { true } else { false }
+            },
+
+            3 => {
+                if level_size > 1000000000 { true } else { false }
+            },
+
+            4 => {
+                if level_size > 10000000000 { true } else { false }
+            },
+
+            _ => false
+
+        };
+
+        if compaction_flag {
+
+            level_lists.sort_by_key(|x| x.name.to_string());
 
             let level_path = format!("{}/level_{}", &store_path, &level);
 
-            let mut list_paths = Vec::new();
-
-            for list in level_lists {
-                let list_path = format!("{}/{}.ndbl", &level_path, list.name);
-                if Path::new(&list_path).is_file() {
-                    list_paths.push(list_path);
-                }
-            }
-
-            let lists_vec: Vec<Vec<(String, String)>> = list_paths
+            let mut level_data: Vec<(String, String)> = level_lists
                 .iter()
-                .map(|x| fs::read(x).unwrap())
-                .map(|x| list::deserialize::list(&x).unwrap())
-                .collect();
+                .fold(vec![], | acc, x | {
 
-            let mut merged_list = lists_vec.concat();
+                    let list_path = format!("{}/{}.neutron", &level_path, x.name);
 
-            merged_list.retain(|x| store.graves.contains(&x.0) == false);
+                    let list_buffer = fs::read(&list_path).unwrap();
 
-            merged_list.reverse();
+                    fs::remove_file(list_path).unwrap();
 
-            merged_list.sort_by_key(|x| x.0.to_owned());
+                    [acc, list::deserialize::list(&list_buffer).unwrap()].concat()
 
-            merged_list.dedup_by_key(|x| x.0.to_owned());
+                });
 
-            let bloom_filter: Vec<u8> = merged_list
+            level_data.retain(|x| store.graves.contains(&x.0) == false);
+
+            level_data.reverse();
+
+            level_data.sort_by_key(|x| x.0.to_owned());
+
+            level_data.dedup_by_key(|x| x.0.to_owned());
+
+            let bloom_filter: Vec<u8> = level_data
                 .iter()
                 .fold(vec![0; 32], |acc, x| bloom_filter::insert(acc, &x.0));
-
-            let merged_list_buffer: Vec<u8> = list::serialize::list(&merged_list);
 
             let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
 
             let next_level: u8 = level + 1;
 
-            let next_level_path = format!("{}/level_{}", &store_path, &next_level);
+            let next_level_path = format!("{}/level_{}/", &store_path, &next_level);
 
             fs::create_dir_all(&next_level_path)?;
 
-            let merged_list_path = format!("{}/{}.ndbl", &next_level_path, &current_time);
+            let compacted_path = format!("{}{}.neutron", &next_level_path, &current_time);
 
-            fs::write(&merged_list_path, &merged_list_buffer)?;
+            let compacted_buffer: Vec<u8> = list::serialize::list(&level_data);
+
+            fs::write(&compacted_path, &compacted_buffer)?;
 
             store.lists.retain(|x| x.level != level);
 
-            let new_list = List{
+            let compaction_meta = fs::metadata(&compacted_path)?;
+
+            let meta = Metadata{
                 name: current_time.to_string(),
                 level: next_level,
+                size: compaction_meta.len(),
                 bloom_filter: bloom_filter
             };
 
-            store.lists.push(new_list);
+            store.lists.push(meta);
 
-            let updated_lists: Vec<(String, String)> = store.lists
+            let meta_path_str: String = format!("{}/meta", &store_path);
+
+            let meta_path: &Path = Path::new(&meta_path_str);
+
+            fs::remove_file(meta_path)?;
+
+            let mut meta_file = OpenOptions::new()
+                .read(true)
+                .append(true)
+                .create(true)
+                .open(meta_path)?;
+
+            let meta_str: String = store.lists
                 .iter()
-                .map(|x| {
+                .fold(String::new(), | acc, x | {
+                    format!("{}{} {} {} {}\n",
+                    acc,
+                    encode::str(&x.name),
+                    encode::u8(&x.level),
+                    encode::u64(&x.size),
+                    encode::bytes(&x.bloom_filter))
+                });
 
-                    let table_value: String = encode::list(
-                        &vec![
-                            encode::u8(&x.level),
-                            encode::bytes(&x.bloom_filter)
-                        ]
-                    );
-        
-                    (x.name.to_string(), table_value)
+            write!(meta_file, "{}", &meta_str)?;
 
-                })
-                .collect();
-
-            let updated_lists_buffer: Vec<u8> = list::serialize::list(&updated_lists);
-
-            let lists_path = format!("{}/lists.ndbl", &store_path);
-
-            fs::write(&lists_path, &updated_lists_buffer)?;
-
-            for stale_path in list_paths {
-                fs::remove_file(stale_path)?;
-            }
-            
         }
 
     }

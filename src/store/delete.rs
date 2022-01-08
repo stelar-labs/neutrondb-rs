@@ -1,11 +1,10 @@
 
-use std::error::Error;
-use std::fs;
-
-use crate::list;
+use astro_notation::encode;
 use crate::Store;
-
-use stellar_notation::{ encode };
+use std::error::Error;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::Path;
 
 pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
 
@@ -19,30 +18,23 @@ pub fn run(store: &mut Store, key: &str) -> Result<(), Box<dyn Error>> {
         
         None => {
 
-            let store_path = format!("./ndb/{}", store.name);
-
-            store.cache.retain(|x| x.0 != key);
-
-            if store.cache.is_empty() {
-
-                let cache_path = format!("{}/cache.ndbl", &store_path);
-                
-                fs::remove_file(&cache_path)?;
-
-            }
-
             store.graves.push(key.to_string());
 
-            let graves_path = format!("{}/graves.ndbl", &store_path);
+            let store_path = format!("./ndb/{}", store.name);
 
-            let grave_list: Vec<(String, String)> = store.graves
-                .iter()
-                .map(|x| (x.to_string(), encode::u8(&0)))
-                .collect();
+            let logs_path_str: String = format!("{}/logs", &store_path);
 
-            let graves_buffer = list::serialize::list(&grave_list);
+            let logs_path: &Path = Path::new(&logs_path_str); 
 
-            fs::write(&graves_path, &graves_buffer)?;
+            let logs_put: String = format!("0x02 {}\n", encode::str(key));
+
+            let mut logs_file = OpenOptions::new()
+                .read(true)
+                .append(true)
+                .create(true)
+                .open(logs_path)?;
+
+            write!(logs_file, "{}", &logs_put)?;
 
         }
 

@@ -10,7 +10,7 @@ In your `Cargo.toml`:
 ```
 
 [dependencies]
-neutrondb = "1.0.0"
+neutrondb = "2.0.0"
 
 ```
 
@@ -79,7 +79,6 @@ accs.delete("user1")?;
 
 ## Future
 - Increase Bloom Filter Size
-- Use Sorted Lists on Merged Lists
 - Read/Write Performance through multi-threading and batching
 - Data Compression
 - Error Detection
@@ -88,4 +87,4 @@ accs.delete("user1")?;
 ## Contribution
 Pull requests, bug reports and any kind of suggestion are welcome.
 
-2022-01-01
+2022-01-08

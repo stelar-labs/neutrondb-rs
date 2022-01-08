@@ -1,41 +1,37 @@
-
-use std::error::Error;
-use std::fs;
-
 use crate::list;
 use crate::Store;
+use std::error::Error;
+use std::fs;
 
 pub fn run(store: &Store) -> Result<Option<Vec<(String, String)>>, Box<dyn Error>> {
 
     let store_path = format!("./ndb/{}", store.name);
 
-    let mut all_list: Vec<(String, String)> = vec![];
+    let mut res: Vec<(String, String)> = Vec::new();
 
     for list in &store.lists {
 
-        let list_path = format!("{}/level_{}/{}.ndbl", &store_path, list.level, list.name);
+        let list_path = format!("{}/{}.neutron", &store_path, list.name);
 
         let list_buffer = fs::read(&list_path)?;
 
-        all_list = [all_list, list::deserialize::list(&list_buffer)?].concat();
+        res = [res, list::deserialize::list(&list_buffer)?].concat();
 
     }
 
-    all_list = [all_list, store.cache.clone()].concat();
-
-    if all_list.is_empty() {
+    if res.is_empty() {
         
         Ok(None)
     
     } else {
 
-        all_list.reverse();
+        res.reverse();
 
-        all_list.sort_by_key(|x| x.0.to_string());
+        res.sort_by_key(|x| x.0.to_owned());
 
-        all_list.dedup_by_key(|x| x.0.to_string());
+        res.dedup_by_key(|x| x.0.to_owned());
         
-        Ok(Some(all_list))
+        Ok(Some(res))
 
     }
 
