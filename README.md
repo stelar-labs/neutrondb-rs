@@ -10,7 +10,7 @@ In your `Cargo.toml`:
 ```
 
 [dependencies]
-neutrondb = "2.1.1"
+neutrondb = "2.2.0"
 
 ```
 

@@ -20,10 +20,9 @@ struct Table {
     bloom_filter: Vec<u8>
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Store {
     directory: String,
-    logs: File,
     cache: Vec<(String, String)>,
     graves: Vec<String>,
     meta: Vec<Table>
@@ -38,19 +37,9 @@ impl Store {
         let path = Path::new(&directory);
 
         fs::create_dir_all(&path).unwrap();
-    
-        let logs_path = format!("{}/logs", &directory);
-
-        let logs: File = OpenOptions::new()
-            .read(true)
-            .append(true)
-            .create(true)
-            .open(Path::new(&logs_path))
-            .unwrap();
 
         let mut output: Store = Store {
             directory: directory.clone(),
-            logs: logs,
             cache: Vec::new(),
             graves: Vec::new(),
             meta: Vec::new()
@@ -81,9 +70,9 @@ impl Store {
     
         }
 
-        if Path::new(&logs_path).is_file() {
+        if Path::new(&format!("{}/logs", &directory)).is_file() {
             
-            for line in BufReader::new(File::open(logs_path).unwrap()).lines() {
+            for line in BufReader::new(File::open(format!("{}/logs", &directory)).unwrap()).lines() {
 
 
                 let line = line.unwrap();
@@ -95,7 +84,6 @@ impl Store {
                     1 => {
                         
                         let key: String = str::from_utf8(&decode::as_bytes(split[1])).unwrap().to_string();
-    
                         let value: String = str::from_utf8(&decode::as_bytes(split[2])).unwrap().to_string();
     
                         output.cache.push((key.clone(), value));
@@ -129,20 +117,22 @@ impl Store {
             encode::bytes(&value.to_string().into_bytes())
         );
 
-        write!(self.logs, "{}", &logs_put).unwrap();
+        let logs_path = format!("{}/logs", &self.directory);
 
-        if self.logs.metadata().unwrap().len() > 2097152 {
-
-            self.flush();
-        
-            fs::remove_file(Path::new(&format!("{}/logs", &self.directory))).unwrap();
-
-            self.logs = OpenOptions::new()
+        let mut logs_file = OpenOptions::new()
                 .read(true)
                 .append(true)
                 .create(true)
-                .open(Path::new(&format!("{}/logs", &self.directory)))
+                .open(Path::new(&logs_path))
                 .unwrap();
+
+        write!(logs_file, "{}", &logs_put).unwrap();
+
+        if logs_file.metadata().unwrap().len() > 2097152 {
+
+            self.flush();
+        
+            fs::remove_file(logs_path).unwrap();
 
             self.cache.clear();
 
@@ -307,7 +297,7 @@ impl Store {
 
     }
 
-    pub fn get(self, key: &str) -> Option<String> {
+    pub fn get(&self, key: &str) -> Option<String> {
         
         match self.graves.iter().find(|&x| x == key) {
             Some(_) => None,
@@ -348,7 +338,7 @@ impl Store {
 
     }
 
-    pub fn get_all(self) -> Option<Vec<(String, String)>> {
+    pub fn get_all(&self) -> Option<Vec<(String, String)>> {
 
         let mut res: Vec<(String, String)> = Vec::new();
 
@@ -360,7 +350,7 @@ impl Store {
 
         }
 
-        res = [res, self.cache].concat();
+        res = [res, self.cache.clone()].concat();
 
         if res.is_empty() {
             None
