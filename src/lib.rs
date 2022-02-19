@@ -20,7 +20,7 @@ struct Table {
     bloom_filter: Vec<u8>
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Store {
     directory: String,
     cache: Vec<(String, String)>,
