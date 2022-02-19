@@ -5,7 +5,6 @@ use std::fs::File;
 use std::path::Path;
 use std::error::Error;
 use std::str;
-use crate::CustomError;
 
 pub fn key(p: &Path, arg: &str) -> Result<Option<String>, Box<dyn Error>>  {
 
@@ -148,7 +147,7 @@ pub fn key(p: &Path, arg: &str) -> Result<Option<String>, Box<dyn Error>>  {
         }
 
     } else {
-        Err(Box::new(CustomError("unsupport neutron file version".into())))?
+        panic!("unsupport neutron file version")
     }
 
 }

@@ -1,7 +1,7 @@
 
-# NeutronDB Rust
+# NeutronDB
 
-NeutronDB is a Log-structured merge-tree key-value store library written in Rust.
+NeutronDB is a Log-structured merge-tree key-value store for Rust.
 
 ## Usage
 
@@ -10,7 +10,7 @@ In your `Cargo.toml`:
 ```
 
 [dependencies]
-neutrondb = "2.0.0"
+neutrondb = "2.1.0"
 
 ```
 
@@ -41,7 +41,7 @@ In .gitignore
 
 ```
 
-let mut accs = Store::connect("accs")?;
+let mut accs = Store::connect("accs");
 
 ```
 
@@ -49,7 +49,7 @@ let mut accs = Store::connect("accs")?;
 
 ```
 
-accs.put("user1", "balance1")?;
+accs.put("user1", "balance1");
 
 ```
 
@@ -57,7 +57,7 @@ accs.put("user1", "balance1")?;
 
 ```
 
-let balance1: String = accs.get("user1")?;
+let bal: Option<String> = accs.get("user_1");
 
 ```
 
@@ -65,7 +65,7 @@ let balance1: String = accs.get("user1")?;
 
 ```
 
-let accounts: Vec<(String, String)> = accs.get_all()?;
+let accounts: Option<Vec<(String, String)>> = accs.get_all();
 
 ```
 
@@ -73,7 +73,7 @@ let accounts: Vec<(String, String)> = accs.get_all()?;
 
 ```
 
-accs.delete("user1")?;
+accs.delete("user1");
 
 ```
 
@@ -87,4 +87,4 @@ accs.delete("user1")?;
 ## Contribution
 Pull requests, bug reports and any kind of suggestion are welcome.
 
-2022-01-08
+2022-02-19
