@@ -276,9 +276,9 @@ impl Store {
                     bloom_filter: bloom_filter
                 };
                 
-                let meta_path: &Path = Path::new(&format!("{}/meta", &self.directory));
+                let meta_path = format!("{}/meta", &self.directory);
 
-                fs::remove_file(meta_path).unwrap();
+                fs::remove_file(Path::new(&meta_path)).unwrap();
 
                 self.meta.push(table);
                 
@@ -286,7 +286,7 @@ impl Store {
                     .read(true)
                     .append(true)
                     .create(true)
-                    .open(meta_path)
+                    .open(Path::new(&meta_path))
                     .unwrap();
         
                 let meta_str: String = self.meta
