@@ -2,6 +2,7 @@
 use astro_notation::encode;
 use crate::Store;
 use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::Path;
 
 impl Store {
