@@ -10,7 +10,7 @@ In your `Cargo.toml`:
 ```
 
 [dependencies]
-neutrondb = "2.2.0"
+neutrondb = "2.2.1"
 
 ```
 
@@ -26,7 +26,7 @@ In .gitignore
 
 ```
 
-/ndb/
+/neutrondb/
 
 ```
 
@@ -87,4 +87,4 @@ accs.delete("user1");
 ## Contribution
 Pull requests, bug reports and any kind of suggestion are welcome.
 
-2022-02-19
+2022-03-26

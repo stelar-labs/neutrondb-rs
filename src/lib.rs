@@ -1,17 +1,13 @@
-use std::fs::File;
+
+mod bloom;
+mod list;
+mod store;
+use astro_notation::encode;
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::BufReader;
-use std::io::BufRead;
-use std::path::Path;
-use std::str;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::io::Write;
-
-use astro_notation::{encode, decode};
-
-mod list;
-mod bloom;
+use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug)]
 struct Table {
@@ -29,123 +25,6 @@ pub struct Store {
 }
 
 impl Store {
-
-    pub fn connect(name: &str) -> Store {
-
-        let directory = format!("./ndb/{}", name);
-
-        let path = Path::new(&directory);
-
-        fs::create_dir_all(&path).unwrap();
-
-        let mut output: Store = Store {
-            directory: directory.clone(),
-            cache: Vec::new(),
-            graves: Vec::new(),
-            meta: Vec::new()
-        };
-        
-        if Path::new(&format!("{}/graves", &directory)).is_file() {
-            for line in BufReader::new(File::open(format!("{}/graves", &directory)).unwrap()).lines() {
-                output.graves.push(decode::as_str(&line.unwrap()))
-            }
-        }
-
-        if Path::new(&format!("{}/meta", &directory)).is_file() {
-            
-            for line in BufReader::new(File::open(format!("{}/meta", &directory)).unwrap()).lines() {
-
-                let line = line.unwrap();
-                let split: Vec<&str> = line.split(' ').collect();
-                
-                let table: Table = Table {
-                    name: decode::as_str(split[0]),
-                    level: decode::as_u8(split[1]),
-                    bloom_filter: decode::as_bytes(split[2])
-                };
-    
-                output.meta.push(table)
-    
-            }
-    
-        }
-
-        if Path::new(&format!("{}/logs", &directory)).is_file() {
-            
-            for line in BufReader::new(File::open(format!("{}/logs", &directory)).unwrap()).lines() {
-
-
-                let line = line.unwrap();
-                let split: Vec<&str> = line.split(' ').collect();
-    
-                let log_type: u8 = decode::as_u8(split[0]);
-    
-                match log_type {
-                    1 => {
-                        
-                        let key: String = str::from_utf8(&decode::as_bytes(split[1])).unwrap().to_string();
-                        let value: String = str::from_utf8(&decode::as_bytes(split[2])).unwrap().to_string();
-    
-                        output.cache.push((key.clone(), value));
-                        
-                        match output.graves.iter().find(|&x| x == &key) {
-                            Some(_) => output.graves.retain(|x| x != &key),
-                            None => ()
-                        }
-    
-                    },
-                    2 => output.graves.push(decode::as_str(split[1])),
-                    _ => ()
-    
-                }
-    
-            }
-    
-        }
-
-        output
-
-    }
-
-    pub fn put(&mut self, key: &str, value: &str) {
-        
-        self.cache.push((key.to_string(), value.to_string()));
-
-        let logs_put: String = format!(
-            "0x01 {} {}\n",
-            encode::bytes(&key.to_string().into_bytes()),
-            encode::bytes(&value.to_string().into_bytes())
-        );
-
-        let logs_path = format!("{}/logs", &self.directory);
-
-        let mut logs_file = OpenOptions::new()
-                .read(true)
-                .append(true)
-                .create(true)
-                .open(Path::new(&logs_path))
-                .unwrap();
-
-        write!(logs_file, "{}", &logs_put).unwrap();
-
-        if logs_file.metadata().unwrap().len() > 2097152 {
-
-            self.flush();
-        
-            fs::remove_file(logs_path).unwrap();
-
-            self.cache.clear();
-
-            self.compaction();
-
-        }
-    
-        match self.graves.iter().find(|&x| x == key) {
-            Some(_) => self.graves.retain(|x| x != key),
-            None => ()
-        }
-
-    }
 
     fn flush(&mut self) {
 
@@ -205,7 +84,7 @@ impl Store {
         }
 
     }
-
+    
     fn compaction(&mut self) {
 
         for level in 1..=4 {
@@ -290,106 +169,6 @@ impl Store {
                     });
 
                 write!(meta_file, "{}", &meta_str).unwrap();
-
-            }
-
-        }
-
-    }
-
-    pub fn get(&self, key: &str) -> Option<String> {
-        
-        match self.graves.iter().find(|&x| x == key) {
-            Some(_) => None,
-            None => {
-                
-                match self.cache.iter().find(|x| x.0 == key) {
-                    Some(r) => Some(r.1.to_owned()),
-                    None => {
-
-                        let mut search_res: Option<String> = None;
-                        
-                        for table in self.meta.clone() {
-
-                            if bloom::lookup(&table.bloom_filter, &key) {
-                                
-                                let list_path = format!("{}/tables/level_{}/{}.neutron", &self.directory, table.level, table.name);
-                                
-                                match list::search::key(Path::new(&list_path), key).unwrap() {
-                                    Some(r) => {
-                                        search_res = Some(r);
-                                        break
-                                    },
-                                    None => ()
-                                }
-
-                            }
-
-                        }
-
-                        search_res
-
-                    }
-                }
-
-            }
-
-        }
-
-    }
-
-    pub fn get_all(&self) -> Option<Vec<(String, String)>> {
-
-        let mut res: Vec<(String, String)> = Vec::new();
-
-        for table in &self.meta {
-
-            let buf = fs::read(format!("{}/{}.neutron", &self.directory, table.name)).unwrap();
-
-            res = [res, list::deserialize::list(&buf).unwrap()].concat();
-
-        }
-
-        res = [res, self.cache.clone()].concat();
-
-        if res.is_empty() {
-            None
-        } 
-        
-        else {
-            res.reverse();
-            res.sort_by_key(|x| x.0.to_owned());
-            res.dedup_by_key(|x| x.0.to_owned());
-            
-            Some(res)
-        }
-
-    }
-
-    pub fn delete(&mut self, key: &str) {
-        
-        match self.graves.iter().find(|x| x == &key) {
-            
-            Some(_) => (),
-            
-            None => {
-
-                self.graves.push(key.to_string());
-
-                let logs_path_str: String = format!("{}/logs", &self.directory);
-
-                let logs_path: &Path = Path::new(&logs_path_str); 
-
-                let logs_put: String = format!("0x02 {}\n", encode::str(key));
-
-                let mut logs_file = OpenOptions::new()
-                    .read(true)
-                    .append(true)
-                    .create(true)
-                    .open(logs_path)
-                    .unwrap();
-
-                write!(logs_file, "{}", &logs_put).unwrap();
 
             }
 
