@@ -1,5 +1,4 @@
-
-use crate::{bloom, list, Store};
+use crate::{neutron, Store};
 use std::path::Path;
 
 impl Store {
@@ -7,41 +6,59 @@ impl Store {
     pub fn get(&self, key: &str) -> Option<String> {
             
         match self.graves.iter().find(|&x| x == key) {
+
             Some(_) => None,
+
             None => {
                 
-                match self.cache.iter().find(|x| x.0 == key) {
-                    Some(r) => Some(r.1.to_owned()),
+                match self.cache.get(key) {
+
+                    Some(r) => Some(r.to_string()),
+
                     None => {
 
-                        let mut search_res: Option<String> = None;
+                        let mut res: Option<String> = None;
                         
-                        for table in self.meta.clone() {
+                        for table in &self.tables {
 
-                            if bloom::lookup(&table.bloom_filter, &key) {
+                            println!(" * search: {:?}", table.bloom.search(key));
+
+                            match table.bloom.search(key) {
                                 
-                                let list_path = format!("{}/tables/level_{}/{}.neutron", &self.directory, table.level, table.name);
+                                true => {
+
+                                    let table_path_str = format!(
+                                        "{}/tables/level_{}/{}.neutron",
+                                        &self.directory,
+                                        table.level,
+                                        table.name
+                                    );
+                                    
+                                    let table_path = Path::new(&table_path_str);
                                 
-                                match list::search::key(Path::new(&list_path), key).unwrap() {
-                                    Some(r) => {
-                                        search_res = Some(r);
-                                        break
-                                    },
-                                    None => ()
-                                }
+                                    match neutron::search(key, table_path) {
+                                        
+                                        Ok(r) => {
+                                            res = Some(r);
+                                            break
+                                        },
+                                        
+                                        Err(_) => ()
+                                    
+                                    }
+
+                                },
+
+                                false => ()
 
                             }
 
                         }
 
-                        search_res
-
+                        res
                     }
                 }
-
             }
-
         }
-
     }
 }

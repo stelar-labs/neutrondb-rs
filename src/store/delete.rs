@@ -1,17 +1,17 @@
-
-use astro_notation::encode;
+use astro_format::string;
 use crate::Store;
+use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
 
 impl Store {
 
-    pub fn delete(&mut self, key: &str) {
+    pub fn delete(&mut self, key: &str) -> Result<(), Box<dyn Error>> {
             
         match self.graves.iter().find(|x| x == &key) {
             
-            Some(_) => (),
+            Some(_) => Ok(()),
             
             None => {
 
@@ -21,16 +21,16 @@ impl Store {
 
                 let logs_path: &Path = Path::new(&logs_path_str); 
 
-                let logs_put: String = format!("0x02 {}\n", encode::str(key));
+                let logs_append: String = format!("delete {}\n", string::encode::bytes(&key.to_string().into_bytes()));
 
                 let mut logs_file = OpenOptions::new()
-                    .read(true)
                     .append(true)
                     .create(true)
-                    .open(logs_path)
-                    .unwrap();
+                    .open(logs_path)?;
 
-                write!(logs_file, "{}", &logs_put).unwrap();
+                write!(logs_file, "{}", &logs_append)?;
+
+                Ok(())
 
             }
 

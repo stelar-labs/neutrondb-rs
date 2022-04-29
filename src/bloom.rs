@@ -1,120 +1,63 @@
+use std::convert::TryInto;
+use fides::hash;
+use opis::Bit;
 
-use blake3;
-use sha2::{Sha256, Sha512, Digest};
-use sha3::{Sha3_256, Sha3_512};
-
-pub fn insert(filter: Vec<u8>, key: &str) -> Vec<u8> {
-
-    let hash_results = vec![h1(&key), h2(&key), h3(&key), h4(&key), h5(&key)];
-
-    let result = hash_results.iter()
-        .fold(filter, |acc, x| toggle(acc, x));
-
-    return result.to_owned()
-
+#[derive(Clone, Debug)]
+pub struct Bloom {
+    pub bits: Vec<Bit>
 }
 
-pub fn lookup(filter: &Vec<u8>, key: &str) -> bool {
+impl Bloom {
 
-    let hash_results = vec![h1(&key), h2(&key), h3(&key), h4(&key), h5(&key)];
-
-    let result = hash_results.iter()
-        .all(|x| is_toggled(filter, x));
-
-    return result
-
-}
-
-fn toggle(filter: Vec<u8>, hash: &u8) -> Vec<u8> {
-
-    let byte_index: u8 = hash/8;
-    let bit_index: u8 = hash%8;
-
-    let mut byte = filter[byte_index as usize];
-
-    match bit_index {
-        0 => byte |= 0b1000_0000,
-        1 => byte |= 0b0100_0000,
-        2 => byte |= 0b0010_0000,
-        3 => byte |= 0b0001_0000,
-        4 => byte |= 0b0000_1000,
-        5 => byte |= 0b0000_0100,
-        6 => byte |= 0b0000_0010,
-        _ => byte |= 0b0000_0001,
+    pub fn new(items: usize) -> Self {
+        Bloom {
+            bits: vec![Bit::Zero; items * 10]
+        }
     }
 
-    let mut result = filter;
+    pub fn insert(mut self, key: &str) -> Self {
 
-    result[byte_index as usize] = byte;
+        let hash = hash(&key.as_bytes().to_vec());
 
-    return result
+        (0.. 5_usize)
+            .for_each(|x| {
 
-}
+                let start = x * 4;
 
-fn is_toggled(filter: &Vec<u8>, hash: &u8) -> bool {
+                let mut i = u32::from_le_bytes(hash[start..start + 4].try_into().unwrap()) as usize;
 
-    let byte_index: u8 = hash/8;
-    let bit_index: u8 = hash%8;
+                let f = self.bits.len();
 
-    let byte = filter[byte_index as usize];
+                i = i % f;
+                
+                self.bits[i] = Bit::One;
 
-    let mut new_byte = byte;
+            });
 
-    match bit_index {
-        0 => new_byte |= 0b1000_0000,
-        1 => new_byte |= 0b0100_0000,
-        2 => new_byte |= 0b0010_0000,
-        3 => new_byte |= 0b0001_0000,
-        4 => new_byte |= 0b0000_1000,
-        5 => new_byte |= 0b0000_0100,
-        6 => new_byte |= 0b0000_0010,
-        _ => new_byte |= 0b0000_0001,
+        self
+
     }
 
-    if byte == new_byte {
-        return true
-    } else {
-        return false
+    pub fn search(&self, key: &str) -> bool {
+
+        let hash = hash(&key.as_bytes().to_vec());
+
+        (0..5_usize)
+            .map(|x| {
+
+                let start = x + 4;
+
+                let mut i = u32::from_le_bytes(hash[start..start + 4].try_into().unwrap()) as usize;
+
+                let f = self.bits.len();
+
+                i = i % f;
+                
+                self.bits[i]
+
+            })
+            .any(|x| x == Bit::Zero)
+
     }
 
-}
-
-fn h1(key: &str) -> u8 {
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(&key.to_owned().into_bytes());
-    let hash = hasher.finalize();
-    let integer = u8::from_le(hash.as_bytes()[0]);
-    return integer
-}
-
-fn h2(key: &str) -> u8 {
-    let mut hasher = Sha256::new();
-    hasher.update(key);
-    let hash = hasher.finalize();
-    let integer = u8::from_le(hash[0]);
-    return integer
-}
-
-fn h3(key: &str) -> u8 {
-    let mut hasher = Sha512::new();
-    hasher.update(key);
-    let hash = hasher.finalize();
-    let integer = u8::from_le(hash[0]);
-    return integer
-}
-
-fn h4(key: &str) -> u8 {
-    let mut hasher = Sha3_256::new();
-    hasher.update(key);
-    let hash = hasher.finalize();
-    let integer = u8::from_le(hash[0]);
-    return integer
-}
-
-fn h5(key: &str) -> u8 {
-    let mut hasher = Sha3_512::new();
-    hasher.update(key);
-    let hash = hasher.finalize();
-    let integer = u8::from_le(hash[0]);
-    return integer
 }

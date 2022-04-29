@@ -1,15 +1,13 @@
-
 [package]
 name = "neutrondb"
-version = "2.2.1"
-edition = "2018"
+version = "2.3.0"
+edition = "2021"
 license = "MIT"
 description = "NeutronDB is a Log-structured merge-tree key-value store for Rust."
 repository = "https://github.com/stelar-software/rust-neutrondb"
 readme = "README.md"
 
 [dependencies]
-astro-notation = "3.1.0"
-blake3 = "1.0.0"
-sha2 = "0.9.5"
-sha3 = "0.9.1"
+astro-format = "0.6.0"
+fides = "2.2.1"
+opis = "3.0.7"

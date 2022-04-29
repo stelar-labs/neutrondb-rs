@@ -1,34 +1,40 @@
-
-use crate::{list, Store};
-use std::fs;
+use crate::{neutron, Store};
+use std::{fs, error::Error, path::Path};
 
 impl Store {
 
-    pub fn get_all(&self) -> Option<Vec<(String, String)>> {
+    pub fn get_all(&self) -> Result<Vec<(String, String)>, Box<dyn Error>> {
 
         let mut res: Vec<(String, String)> = Vec::new();
 
-        for table in &self.meta {
+        for table in &self.tables {
 
-            let buf = fs::read(format!("{}/{}.neutron", &self.directory, table.name)).unwrap();
+            let table_path_str = format!(
+                "{}/tables/level_{}/{}.neutron",
+                &self.directory,
+                table.level,
+                table.name
+            );
 
-            res = [res, list::deserialize::list(&buf).unwrap()].concat();
+            let table_path = Path::new(&table_path_str);
+
+            let buffer = fs::read(table_path)?;
+
+            res = [res, neutron::fetch(&buffer)?].concat();
 
         }
 
-        res = [res, self.cache.clone()].concat();
+        let cache: Vec<(String, String)> = self.cache.iter().map(|(k,v)| (k.to_owned(),v.to_owned())).collect();
 
-        if res.is_empty() {
-            None
-        } 
+        res = [res, cache].concat();
+
+        res.reverse();
         
-        else {
-            res.reverse();
-            res.sort_by_key(|x| x.0.to_owned());
-            res.dedup_by_key(|x| x.0.to_owned());
+        res.sort_by_key(|x| x.0.to_owned());
+        
+        res.dedup_by_key(|x| x.0.to_owned());
             
-            Some(res)
-        }
+        Ok(res)
 
     }
 }

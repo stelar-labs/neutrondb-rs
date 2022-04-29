@@ -1,90 +1,79 @@
-
 # NeutronDB
 
 NeutronDB is a Log-structured merge-tree key-value store for Rust.
+
+## Disclaimer
+
+NeutronDB is still in development and is unstable until version 3.
 
 ## Usage
 
 In your `Cargo.toml`:
 
-```
-
+```text
 [dependencies]
-neutrondb = "2.2.1"
-
+neutrondb = "2.3.0"
 ```
 
 In your Rust file:
 
-```
-
+```text
 use neutrondb::Store;
-
 ```
 
 In .gitignore
 
-```
-
+```text
 /neutrondb/
-
 ```
 
 ## Features
+
 - Keys and Values are UTF-8 strings of any length.
-- Data is stored in linked lists.
 - There are five functions connect, put, get, get_all, and delete.
+- Data is stored in the Neutron table format.
+- The Neutron table file has the index length, bloom filter length, index, bloom filter and values.
 
 ## API
 
-`Connect`
+`New`
 
-```
-
-let mut accs = Store::connect("accs");
-
+```text
+let mut accs = Store::new("accs")?;
 ```
 
 `Put`
 
-```
-
-accs.put("user1", "balance1");
-
+```text
+accs.put("user1", "balance1")?;
 ```
 
 `Get`
 
-```
-
-let bal: Option<String> = accs.get("user_1");
-
+```text
+let bal = accs.get("user_1")?;
 ```
 
 `Get All`
 
-```
-
-let accounts: Option<Vec<(String, String)>> = accs.get_all();
-
+```text
+let accounts = accs.get_all()?;
 ```
 
 `Delete`
 
+```text
+accs.delete("user1")?;
 ```
 
-accs.delete("user1");
+## Development
 
-```
-
-## Future
-- Increase Bloom Filter Size
 - Read/Write Performance through multi-threading and batching
-- Data Compression
-- Error Detection
-- Error Correction
+- Find function
+- Memory efficiency to enable large databases
 
 ## Contribution
+
 Pull requests, bug reports and any kind of suggestion are welcome.
 
-2022-03-26
+2022-04-29
