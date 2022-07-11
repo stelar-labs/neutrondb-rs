@@ -12,13 +12,17 @@ impl Store {
 
         self.cache.insert(key.to_string(), value.to_string());
 
+        let k_bytes = key.as_bytes();
+
+        let v_bytes = value.as_bytes();
+
         let logs_put: String = format!(
             "put {} {}\n",
-            string::encode::bytes(&key.to_string().into_bytes()),
-            string::encode::bytes(&value.to_string().into_bytes())
+            string::encode::bytes(k_bytes),
+            string::encode::bytes(v_bytes)
         );
 
-        let logs_path_str = format!("{}/logs", &self.directory);
+        let logs_path_str = format!("{}/logs", &self.directory_location);
 
         let logs_path = Path::new(&logs_path_str);
 
@@ -29,7 +33,7 @@ impl Store {
 
         write!(logs_file, "{}", &logs_put)?;
 
-        if logs_file.metadata()?.len() > 3200000 {
+        if logs_file.metadata()?.len() > self.cache_size {
 
             self.flush()?;
         
@@ -41,7 +45,7 @@ impl Store {
 
         }
 
-        self.graves.retain(|x| x != key);
+        self.graves.retain(|x| *x != key);
 
         Ok(())
 

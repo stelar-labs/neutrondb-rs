@@ -3,37 +3,48 @@ use std::collections::BTreeMap;
 
 pub fn create(bloom: Vec<u8>, key_values: BTreeMap<String, String>) -> Vec<u8> {
 
-    let mut index: Vec<(Vec<u8>, u64)> = Vec::new();
+    let mut keys = Vec::new();
 
-    let mut values: Vec<u8> = Vec::new();
+    let mut indices = Vec::new();
 
-    for (key, value) in key_values {
-        
-        let key_bytes = key.into_bytes();
+    let mut values = Vec::new();
 
-        index.push((key_bytes, values.len() as u64));
-        
-        let value_bytes = value.into_bytes();
+    let mut index = 0_u64;
 
-        values = [values, value_bytes].concat()
+    for (key, value) in key_values.iter() {
+
+        let k_bytes = key.as_bytes();
+
+        keys.push(k_bytes);
+
+        let v_bytes = value.as_bytes();
+
+        values.push(v_bytes);
+
+        let i_bytes = index.to_le_bytes();
+
+        indices.push(i_bytes);
+
+        index += value.len() as u64;
         
     }
 
-    let index_buffer = arrays::encode(&
-        index
-            .into_iter()
-            .map(|x| {
-                
-                arrays::encode(&vec![x.0.clone(), x.1.to_be_bytes().to_vec()])
+    let indices_slices = indices
+        .iter()
+        .map(|x| &x[..])
+        .collect::<Vec<&[u8]>>();
 
-            })
-            .collect()
-    );
+    let keys_buffer = arrays::encode(&keys);
 
-    let index_len = (index_buffer.len() as u64).to_be_bytes().to_vec();
+    let index_buffer = arrays::encode(&indices_slices);
 
-    let bloom_len = (bloom.len() as u64).to_be_bytes().to_vec();
+    let value_buffer = values.concat();
 
-    [index_len, bloom_len, index_buffer, bloom, values].concat()
+    [
+        (bloom.len() as u64).to_le_bytes().to_vec(), bloom,
+        (keys_buffer.len() as u64).to_le_bytes().to_vec(), keys_buffer,
+        (index_buffer.len() as u64).to_le_bytes().to_vec(), index_buffer,
+        value_buffer
+    ].concat()
 
 }

@@ -13,29 +13,27 @@ use std::str;
 
 impl Store {
 
-    pub fn new(name: &str) -> Result<Store, Box<dyn Error>> {
+    pub fn new(cache_size: &u64, name: &str) -> Result<Store, Box<dyn Error>> {
 
-        let directory = format!("./neutrondb/{}", name);
+        let directory_location = format!("./neutrondb/{}", name);
 
-        let directory_path = Path::new(&directory);
+        let graves_location = format!("{}/graves", &directory_location);
 
-        fs::create_dir_all(&directory_path)?;
-
-        let graves_path_str = format!("{}/graves", &directory);
-
-        let graves_path = Path::new(&graves_path_str);
+        let graves_path = Path::new(&graves_location);
 
         let mut graves = Vec::new();
 
         if graves_path.is_file() {
 
-            for line in BufReader::new(File::open(graves_path)?).lines() {
+            let graves_open = File::open(graves_path)?;
+
+            let graves_buffer = BufReader::new(graves_open);
+
+            for line in graves_buffer.lines() {
                 
                 let line = line?;
-                
-                let decoded = string::decode::as_bytes(&line).unwrap();
 
-                graves.push(str::from_utf8(&decoded)?.to_string());
+                graves.push(line);
             
             }
             
@@ -43,9 +41,9 @@ impl Store {
 
         let mut tables = Vec::new();
 
-        let tables_path_str = format!("{}/tables", &directory);
+        let tables_location = format!("{}/tables", &directory_location);
 
-        let tables_path = Path::new(&tables_path_str);
+        let tables_path = Path::new(&tables_location);
 
         if tables_path.is_dir() {
 
@@ -117,13 +115,17 @@ impl Store {
 
         let mut cache = BTreeMap::new();
 
-        let logs_path_str = format!("{}/logs", &directory);
+        let logs_location = format!("{}/logs", &directory_location);
 
-        let logs_path = Path::new(&logs_path_str);
+        let logs_path = Path::new(&logs_location);
 
         if logs_path.is_file() {
+
+            let logs_open = File::open(logs_path)?;
+
+            let logs_buffer = BufReader::new(logs_open);
             
-            for line in BufReader::new(File::open(logs_path).unwrap()).lines() {
+            for line in logs_buffer.lines() {
 
                 let line = line?;
                 
@@ -132,18 +134,30 @@ impl Store {
                 match split[0] {
                     
                     "put" => {
-                        
-                        let key: String = str::from_utf8(&string::decode::as_bytes(split[1]).unwrap())?.to_string();
 
-                        let value: String = str::from_utf8(&string::decode::as_bytes(split[2]).unwrap())?.to_string();
+                        let k_bytes = string::decode::bytes(split[1])?;
                         
-                        graves.retain(|x| x != &key);
+                        let k = String::from_utf8(k_bytes)?;
+
+                        let v_bytes = string::decode::bytes(split[2])?;
+
+                        let v = String::from_utf8(v_bytes)?;
+
+                        graves.retain(|x| x != &k);
                         
-                        cache.insert(key, value);
+                        cache.insert(k, v);
                         
                     },
 
-                    "delete" => graves.push(str::from_utf8(&string::decode::as_bytes(split[1]).unwrap())?.to_string()),
+                    "del" => {
+                        
+                        let k_bytes = string::decode::bytes(split[1])?;
+                        
+                        let k = String::from_utf8(k_bytes)?;
+
+                        graves.push(k)
+
+                    },
                     
                     _ => ()
     
@@ -151,14 +165,22 @@ impl Store {
             }
         }
 
-        let res: Store = Store {
-            directory: directory,
+        let mut store = Store {
             cache: cache,
+            cache_size: *cache_size,
+            directory_location: directory_location,
             graves: graves,
             tables: tables
         };
 
-        Ok(res)
+        // if logs_path.metadata()?.len() > *cache_size {
+
+        //     store.compaction();
+
+        // }
+
+        Ok(store)
 
     }
+    
 }

@@ -6,7 +6,8 @@ use std::collections::BTreeMap;
 #[derive(Debug)]
 pub struct Store {
     cache: BTreeMap<String, String>,
-    directory: String,
+    cache_size: u64,
+    directory_location: String,
     graves: Vec<String>,
     tables: Vec<Table>
 }

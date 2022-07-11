@@ -17,9 +17,9 @@ impl Store {
 
                 self.graves.push(key.to_string());
 
-                let logs_path_str: String = format!("{}/logs", &self.directory);
+                let logs_path_str: String = format!("{}/logs", &self.directory_location);
 
-                let logs_path: &Path = Path::new(&logs_path_str); 
+                let logs_path = Path::new(&logs_path_str); 
 
                 let logs_append: String = format!("delete {}\n", string::encode::bytes(&key.to_string().into_bytes()));
 

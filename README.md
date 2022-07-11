@@ -1,10 +1,10 @@
 # NeutronDB
 
-NeutronDB is a Log-structured merge-tree key-value store for Rust.
+NeutronDB is a log-structured merge-tree key-value store for UTF-8 strings of arbitrary length.
 
 ## Disclaimer
 
-NeutronDB is still in development and is unstable until version 3.
+still in development
 
 ## Usage
 
@@ -12,10 +12,10 @@ In your `Cargo.toml`:
 
 ```text
 [dependencies]
-neutrondb = "2.3.0"
+neutrondb = "3.0.0"
 ```
 
-In your Rust file:
+In your module:
 
 ```text
 use neutrondb::Store;
@@ -29,12 +29,39 @@ In .gitignore
 
 ## Features
 
-- Keys and Values are UTF-8 strings of any length.
-- There are five functions connect, put, get, get_all, and delete.
-- Data is stored in the Neutron table format.
-- The Neutron table file has the index length, bloom filter length, index, bloom filter and values.
+### Tables
 
-## API
+- Logs: New entries, recent updates and deletes
+- Data: Entries in key order
+- Graves: Deleted entries
+
+`Neutron Data Table`
+
+```text
+
+    + - - - - - - - - - - - - - +
+    |                           |
+    |   + - - - - - - - - - +   |
+    |   |   Bloom Filter    |   |
+    |   + - - - - - - - - - +   |
+    |                           |
+    |   + - - - - - - - - - +   |
+    |   |       Keys        |   |
+    |   + - - - - - - - - - +   |
+    |                           |
+    |   + - - - - - - - - - +   |
+    |   |       Index       |   |
+    |   + - - - - - - - - - +   |
+    |                           |
+    |   + - - - - - - - - - +   |
+    |   |       Values      |   |
+    |   + - - - - - - - - - +   |
+    |                           |
+    + - - - - - - - - - - - - - +
+
+```
+
+### API
 
 `New`
 
@@ -66,14 +93,4 @@ let accounts = accs.get_all()?;
 accs.delete("user1")?;
 ```
 
-## Development
-
-- Read/Write Performance through multi-threading and batching
-- Find function
-- Memory efficiency to enable large databases
-
-## Contribution
-
-Pull requests, bug reports and any kind of suggestion are welcome.
-
-2022-04-29
+2022-07-12

@@ -11,12 +11,10 @@ impl Store {
 
     pub fn flush(&mut self) -> Result<(), Box<dyn Error>> {
 
-        let level_1_path_str = format!(
-            "{}/tables/level_1",
-            self.directory
+        let level_1_path = format!(
+            "{}/levels/1",
+            self.directory_location
         );
-
-        let level_1_path = Path::new(&level_1_path_str);
         
         fs::create_dir_all(&level_1_path)?;
 
@@ -25,13 +23,13 @@ impl Store {
             .unwrap()
             .as_millis();
 
-        let table_path_str = format!(
-            "{}/{}.neutron",
-            &level_1_path_str,
+        let table_path = format!(
+            "{}/{}",
+            &level_1_path,
             &current_time
         );
         
-        let table_path = Path::new(&table_path_str);
+        let table_location = Path::new(&table_path);
 
         let bloom = self.cache
             .iter()
@@ -46,37 +44,41 @@ impl Store {
             self.cache.clone()
         );
 
-        fs::write(table_path, &table_buffer)?;
+        fs::write(table_location, &table_buffer)?;
 
-        let table: Table = Table {
+        let table = Table {
             bloom: bloom,
             level: 1_u8,
             name: format!("{}", current_time),
-            size: table_path.metadata()?.len()
+            size: table_location.metadata()?.len()
         };
 
         self.tables.push(table);
 
-        let graves_path_str = format!(
+        let graves_path = format!(
             "{}/graves",
-            &self.directory
+            &self.directory_location
         );
 
-        let graves_path = Path::new(&graves_path_str);
+        let graves_location = Path::new(&graves_path);
 
-        if graves_path.is_file() {
+        if graves_location.is_file() {
 
-            fs::remove_file(graves_path)?;
+            fs::remove_file(graves_location)?;
 
             let graves_input = self.graves
                 .iter()
                 .fold(
                     String::new(),
                     |acc, x|
-                    format!("{}{}\n", acc, string::encode::bytes(&x.clone().into_bytes()))
+                    format!(
+                        "{}{}\n",
+                        acc,
+                        string::encode::bytes(x.as_bytes())
+                    )
                 );
 
-            fs::write(graves_path, graves_input)?;
+            fs::write(graves_location, graves_input)?;
 
         };
 

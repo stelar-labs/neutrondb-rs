@@ -17,25 +17,27 @@ impl Store {
                 .filter(|x| x.level == level)
                 .collect();
 
-            let level_size = tables.iter().fold(0, |acc, x| acc + x.size);
+            let level_size = tables
+                .iter()
+                .fold(0, |acc, x| acc + x.size);
 
             if level_size > (10_u64.pow(level as u32) * 1000000) {
 
                 tables.sort_by_key(|x| x.name.to_string());
 
-                let level_path = format!("{}/tables/level_{}/", &self.directory, &level);
+                let level_path = format!("{}/tables/level_{}", &self.directory_location, &level);
 
                 let mut level_data: Vec<(String, String)> = tables
                     .iter()
                     .fold(vec![], | acc, x | {
 
-                        let table_path = format!("{}{}.neutron", &level_path, x.name);
+                        let table_path = format!("{}/{}", &level_path, x.name);
 
                         let table_buffer = fs::read(&table_path).unwrap();
 
                         fs::remove_file(table_path).unwrap();
 
-                        [acc, neutron::fetch(&table_buffer).unwrap()].concat()
+                        [acc, neutron::get_all(&table_buffer).unwrap()].concat()
 
                     });
 
@@ -51,11 +53,19 @@ impl Store {
 
                 let next_level = level + 1;
 
-                let next_level_path = format!("{}/tables/level_{}", &self.directory, &next_level);
+                let next_level_path = format!(
+                    "{}/tables/level_{}",
+                    &self.directory_location,
+                    &next_level
+                );
 
-                fs::create_dir_all(&next_level_path).unwrap();
+                fs::create_dir_all(&next_level_path)?;
 
-                let compact_path_str = format!("{}/{}.neutron", &next_level_path, &current_time);
+                let compact_path_str = format!(
+                    "{}/{}",
+                    &next_level_path,
+                    &current_time
+                );
 
                 let compact_path = Path::new(&compact_path_str);
 

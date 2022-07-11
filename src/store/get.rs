@@ -1,5 +1,4 @@
 use crate::{neutron, Store};
-use std::path::Path;
 
 impl Store {
 
@@ -13,7 +12,7 @@ impl Store {
                 
                 match self.cache.get(key) {
 
-                    Some(r) => Some(r.to_string()),
+                    Some(r) => Some(r.clone()),
 
                     None => {
 
@@ -21,22 +20,18 @@ impl Store {
                         
                         for table in &self.tables {
 
-                            println!(" * search: {:?}", table.bloom.search(key));
-
                             match table.bloom.search(key) {
                                 
                                 true => {
 
-                                    let table_path_str = format!(
-                                        "{}/tables/level_{}/{}.neutron",
-                                        &self.directory,
+                                    let table_path = format!(
+                                        "{}/levels/{}/{}",
+                                        &self.directory_location,
                                         table.level,
                                         table.name
                                     );
-                                    
-                                    let table_path = Path::new(&table_path_str);
                                 
-                                    match neutron::search(key, table_path) {
+                                    match neutron::get(key, &table_path) {
                                         
                                         Ok(r) => {
                                             res = Some(r);

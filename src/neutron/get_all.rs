@@ -3,7 +3,7 @@ use std::error::Error;
 use astro_format::arrays;
 use std::str;
 
-pub fn fetch(buffer: &Vec<u8>) -> Result<Vec<(String, String)>, Box<dyn Error>> {
+pub fn get_all(buffer: &Vec<u8>) -> Result<Vec<(String, String)>, Box<dyn Error>> {
     
     let index_buffer: [u8; 8] = buffer[..8].try_into().unwrap();
 

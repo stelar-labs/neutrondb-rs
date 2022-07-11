@@ -1,5 +1,5 @@
 use crate::{neutron, Store};
-use std::{fs, error::Error, path::Path};
+use std::{fs, error::Error};
 
 impl Store {
 
@@ -9,18 +9,16 @@ impl Store {
 
         for table in &self.tables {
 
-            let table_path_str = format!(
-                "{}/tables/level_{}/{}.neutron",
-                &self.directory,
+            let table_path = format!(
+                "{}/levels/{}/{}",
+                &self.directory_location,
                 table.level,
                 table.name
             );
 
-            let table_path = Path::new(&table_path_str);
-
             let buffer = fs::read(table_path)?;
 
-            res = [res, neutron::fetch(&buffer)?].concat();
+            res = [res, neutron::get_all(&buffer)?].concat();
 
         }
 
@@ -37,4 +35,5 @@ impl Store {
         Ok(res)
 
     }
+
 }
