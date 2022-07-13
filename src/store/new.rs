@@ -41,7 +41,7 @@ impl Store {
 
         let mut tables = Vec::new();
 
-        let tables_location = format!("{}/tables", &directory_location);
+        let tables_location = format!("{}/levels", &directory_location);
 
         let tables_path = Path::new(&tables_location);
 
@@ -53,11 +53,9 @@ impl Store {
                 
                 let level_path = level.path();
 
-                let level_name: String = level.file_name().into_string().unwrap();
+                let level_name = level.file_name().into_string().unwrap();
 
-                let level_strs: Vec<&str> = level_name.split('_').collect();
-
-                let level = u8::from_str_radix(level_strs[1], 10)?;
+                let level = u8::from_str_radix(&level_name, 10)?;
 
                 if level_path.is_dir() {
                     
@@ -69,38 +67,28 @@ impl Store {
 
                         let table_name = table.file_name().into_string().unwrap();
 
-                        let table_strs: Vec<&str> = table_name.split('.').collect();
-
                         if table_path.is_file() {
 
                             let mut file = File::open(table_path)?;
 
-                            let mut index_len_buffer = [0; 8];
+                            let mut bloom_buffer_size_len = [0; 8];
 
-                            file.read_exact(&mut index_len_buffer)?;
+                            file.read_exact(&mut bloom_buffer_size_len)?;
 
-                            let index_len = u64::from_be_bytes(index_len_buffer);
+                            let bloom_buffer_size = usize::from_le_bytes(bloom_buffer_size_len);
 
-                            let mut bloom_len_buffer = [0; 8];
+                            let mut bloom_buffer = vec![0; bloom_buffer_size];
 
-                            file.read_exact(&mut bloom_len_buffer)?;
+                            file.seek(SeekFrom::Start(8))?;
 
-                            let bloom_len = usize::from_be_bytes(bloom_len_buffer);
+                            file.read_exact(&mut bloom_buffer)?;
 
-                            let start = 16 + index_len;
-
-                            file.seek(SeekFrom::Start(start))?;
-
-                            let mut bf_buffer = vec![0; bloom_len];
-
-                            file.read_exact(&mut bf_buffer)?;
-
-                            let bloom = Bloom { bits: Int::from_bytes(&bf_buffer).magnitude };
+                            let bloom = Bloom { bits: Int::from_bytes(&bloom_buffer).magnitude };
 
                             let table = Table {
                                 bloom: bloom,
                                 level: level,
-                                name: table_strs[0].to_string(),
+                                name: table_name,
                                 size: table.metadata()?.len(),
                             };
 
@@ -173,11 +161,17 @@ impl Store {
             tables: tables
         };
 
-        // if logs_path.metadata()?.len() > *cache_size {
+        if logs_path.metadata()?.len() > store.cache_size {
 
-        //     store.compaction();
+            store.flush()?;
+        
+            fs::remove_file(logs_path)?;
 
-        // }
+            store.cache.clear();
+
+            store.compaction()?;
+
+        }
 
         Ok(store)
 
