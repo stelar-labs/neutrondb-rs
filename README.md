@@ -15,13 +15,13 @@ In your `Cargo.toml`:
 neutrondb = "3.0.0"
 ```
 
-In your module:
+In your `module.rs`:
 
 ```text
 use neutrondb::Store;
 ```
 
-In .gitignore
+In your `.gitignore`:
 
 ```text
 /neutrondb/
@@ -29,13 +29,33 @@ In .gitignore
 
 ## Features
 
-### Tables
+### Files
 
-- Logs: New entries, recent updates and deletes
-- Data: Entries in key order
-- Graves: Deleted entries
+- Logs: Recent puts and deletes
+- Table: Non recent key-values
+- Graves: Deleted keys
 
-`Neutron Data Table`
+`Neutron Logs`
+
+```text
+
+    + - - - - - - - - - - - - - - - - - - - - - +
+    |                                           |
+    |   + - - - - - - - +   + - - - - - - - +   |
+    |   |   Log 1 Type  |   |   Log 1 Data  |   |
+    |   + - - - - - - - +   + - - - - - - - +   |
+    |                                           |
+    |                    ...                    |   
+    + - - - - - - - - - - - - - - - - - - - - - +
+
+```
+
+Type: Data
+
+- put: key, value
+- delete: key
+
+`Neutron Table`
 
 ```text
 
@@ -58,6 +78,21 @@ In .gitignore
     |   + - - - - - - - - - +   |
     |                           |
     + - - - - - - - - - - - - - +
+
+```
+
+`Neutron Graves`
+
+```text
+
+    + - - - - - - - - - +
+    |                   |
+    |   + - - - - - +   |
+    |   |   Key 1   |   |
+    |   + - - - - - +   |
+    |                   |
+    |       ....        |
+    + - - - - - - - - - +
 
 ```
 
@@ -93,4 +128,4 @@ let accounts = accs.get_all()?;
 accs.delete("user1")?;
 ```
 
-2022-07-12
+2022-07-13
