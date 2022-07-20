@@ -15,3 +15,7 @@ pub fn get_all(buffer: &Vec<u8>) -> Result<Vec<(String, String)>, Box<dyn Error>
 pub fn get(key: &str, path: &str) -> Result<String, Box<dyn Error>> {
     get::get(key, path)
 }
+
+// match
+
+// iterate

@@ -101,31 +101,75 @@ Type: Data
 `New`
 
 ```text
-let mut accs = Store::new("accs")?;
+let mut accounts_store = Store::new("accounts")?;
 ```
 
 `Put`
 
 ```text
-accs.put("user1", "balance1")?;
+accounts_store.put("address_1", "balance_1")?;
 ```
 
 `Get`
 
-```text
-let bal = accs.get("user_1")?;
+```
+let balance_1 = accounts_store.get("address_1")?;
+```
+
+`Gets`
+```
+let addresses: Vec<&str>;
+
+let accounts = accounts_store.gets(&addresses)?;
 ```
 
 `Get All`
 
 ```text
-let accounts = accs.get_all()?;
+let accounts = accounts_store.get_all()?;
+```
+
+`Match`
+```
+let prefix: &str;
+
+let accounts = accounts_store.match(prefix)?;
+```
+
+`Range`
+```
+let first_address: &str;
+
+let last_address: &str;
+
+let accounts = accounts_store.range(first_address, last_address)?;
+```
+
+`Each`
+```
+let function: fn(&str,&str);
+
+accounts_store.each(function)?;
+```
+
+`Map`
+```
+let function: fn(&str,&str) -> T;
+
+let map = accounts_store.map(function)?;
+```
+
+`Fold`
+```
+let function: fn(T,&str,&str) -> T;
+
+let accumulation = accounts_store.fold(function)?;
 ```
 
 `Delete`
 
 ```text
-accs.delete("user1")?;
+accounts_store.delete("address_1")?;
 ```
 
-2022-07-13
+2022-07-21
