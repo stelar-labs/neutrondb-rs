@@ -1,4 +1,4 @@
-use astro_format::string;
+use hex;
 use crate::Store;
 use std::error::Error;
 use std::fs;
@@ -6,48 +6,49 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
 
-impl Store {
+impl<K,V> Store<K,V> {
 
-    pub fn put(&mut self, key: &str, value: &str) -> Result<(), Box<dyn Error>> {
-
-        self.cache.insert(key.to_string(), value.to_string());
-
-        let k_bytes = key.as_bytes();
-
-        let v_bytes = value.as_bytes();
-
-        let logs_put: String = format!(
-            "put {} {}\n",
-            string::encode::bytes(k_bytes),
-            string::encode::bytes(v_bytes)
-        );
-
-        let logs_path_str = format!("{}/logs", &self.directory_location);
-
-        let logs_path = Path::new(&logs_path_str);
-
-        let mut logs_file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(logs_path)?;
-
-        write!(logs_file, "{}", &logs_put)?;
-
-        if logs_file.metadata()?.len() > self.cache_size {
-
-            self.flush()?;
+    pub fn put(&mut self, key: &K, value: &V) -> Result<(), Box<dyn Error>>
+    
+        where
         
-            fs::remove_file(logs_path)?;
+            K: Clone + std::cmp::Ord + From<Vec<u8>> + Into<Vec<u8>> + std::fmt::Debug,
 
-            self.cache.clear();
+            V: Clone + From<Vec<u8>> + Into<Vec<u8>> + std::fmt::Debug
 
-            self.compaction()?;
+            {
 
-        }
+                let k_bytes: Vec<u8> = key.clone().into();
 
-        self.graves.retain(|x| *x != key);
+                let v_bytes: Vec<u8> = value.clone().into();
 
-        Ok(())
+                self.cache.insert(key.clone(), value.clone());
 
-    }
+                let logs_put: String = format!("put {} {}\n", hex::encode(&k_bytes), hex::encode(&v_bytes));
+
+                let logs_path_str = format!("{}/logs.txt", &self.directory);
+
+                let logs_path = Path::new(&logs_path_str);
+
+                let mut logs_file = OpenOptions::new().append(true).create(true).open(logs_path)?;
+
+                write!(logs_file, "{}", &logs_put)?;
+
+                if logs_file.metadata()?.len() > 1000000 {
+
+                    self.flush()?;
+                
+                    fs::remove_file(logs_path)?;
+
+                    self.cache.clear();
+
+                    self.compaction()?;
+
+                }
+
+                self.graves.retain(|x| x != key);
+
+                Ok(())
+
+            }
 }

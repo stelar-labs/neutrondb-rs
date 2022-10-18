@@ -1,33 +1,23 @@
 # NeutronDB
 
-NeutronDB is a log-structured merge-tree key-value store for UTF-8 strings of arbitrary length.
-
-## Disclaimer
-
-still in development
+NeutronDB is a log-structured merge-tree key-value store for any implemented data type.
 
 ## Usage
 
-In your `Cargo.toml`:
+### Cargo.toml
 
 ```text
 [dependencies]
-neutrondb = "3.0.0"
+neutrondb = "4.0.0"
 ```
 
-In your `module.rs`:
+### Module.rs
 
 ```text
 use neutrondb::Store;
 ```
 
-In your `.gitignore`:
-
-```text
-/neutrondb/
-```
-
-## Features
+## About
 
 ### Files
 
@@ -70,10 +60,6 @@ Type: Data
     |   + - - - - - - - - - +   |
     |                           |
     |   + - - - - - - - - - +   |
-    |   |       Index       |   |
-    |   + - - - - - - - - - +   |
-    |                           |
-    |   + - - - - - - - - - +   |
     |   |       Values      |   |
     |   + - - - - - - - - - +   |
     |                           |
@@ -96,80 +82,32 @@ Type: Data
 
 ```
 
-### API
+## API
 
-`New`
-
-```text
-let mut accounts_store = Store::new("accounts")?;
-```
-
-`Put`
+`new: directory -> Store`
 
 ```text
-accounts_store.put("address_1", "balance_1")?;
+let mut accounts_store: Store<Hash, Account> = Store::new("./ndb")?;
 ```
 
-`Get`
-
-```
-let balance_1 = accounts_store.get("address_1")?;
-```
-
-`Gets`
-```
-let addresses: Vec<&str>;
-
-let accounts = accounts_store.gets(&addresses)?;
-```
-
-`Get All`
+`put: &key, &value`
 
 ```text
-let accounts = accounts_store.get_all()?;
+accounts_store.put(&Hash, &Account)?;
 ```
 
-`Match`
-```
-let prefix: &str;
-
-let accounts = accounts_store.match(prefix)?;
-```
-
-`Range`
-```
-let first_address: &str;
-
-let last_address: &str;
-
-let accounts = accounts_store.range(first_address, last_address)?;
-```
-
-`Each`
-```
-let function: fn(&str,&str);
-
-accounts_store.each(function)?;
-```
-
-`Map`
-```
-let function: fn(&str,&str) -> T;
-
-let map = accounts_store.map(function)?;
-```
-
-`Fold`
-```
-let function: fn(T,&str,&str) -> T;
-
-let accumulation = accounts_store.fold(function)?;
-```
-
-`Delete`
+`get: &key -> value`
 
 ```text
-accounts_store.delete("address_1")?;
+
+let account = accounts_store.get(&Hash)?;
+
 ```
 
-2022-07-21
+`delete: &key`
+
+```text
+accounts_store.delete(&Hash)?;
+```
+
+2022-10-18

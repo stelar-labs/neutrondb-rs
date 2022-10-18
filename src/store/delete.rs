@@ -1,40 +1,48 @@
-use astro_format::string;
 use crate::Store;
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
 
-impl Store {
+impl<K,V> Store<K,V> {
 
-    pub fn delete(&mut self, key: &str) -> Result<(), Box<dyn Error>> {
+    pub fn delete(&mut self, key: &K) -> Result<(), Box<dyn Error>>
+    
+        where 
+        
+            K: std::cmp::PartialEq + std::clone::Clone + Into<Vec<u8>>
             
-        match self.graves.iter().find(|x| x == &key) {
+            {
             
-            Some(_) => Ok(()),
-            
-            None => {
+                match self.graves.iter().find(|x| x == &key) {
+                    
+                    Some(_) => Ok(()),
+                    
+                    None => {
 
-                self.graves.push(key.to_string());
+                        let k_bytes: Vec<u8> = key.clone().into();
+                        
+                        self.graves.push(key.clone());
 
-                let logs_path_str: String = format!("{}/logs", &self.directory_location);
+                        let logs_path_str = format!("{}/logs.txt", &self.directory);
+                        
+                        let logs_path = Path::new(&logs_path_str); 
 
-                let logs_path = Path::new(&logs_path_str); 
+                        let logs_append: String = format!("del {}\n", hex::encode(&k_bytes));
 
-                let logs_append: String = format!("delete {}\n", string::encode::bytes(&key.to_string().into_bytes()));
+                        let mut logs_file = OpenOptions::new()
+                            .append(true)
+                            .create(true)
+                            .open(logs_path)?;
 
-                let mut logs_file = OpenOptions::new()
-                    .append(true)
-                    .create(true)
-                    .open(logs_path)?;
+                        write!(logs_file, "{}", &logs_append)?;
 
-                write!(logs_file, "{}", &logs_append)?;
+                        Ok(())
 
-                Ok(())
+                    }
+
+                }
 
             }
 
-        }
-
-    }
 }

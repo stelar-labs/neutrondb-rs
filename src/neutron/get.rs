@@ -1,79 +1,111 @@
-use std::convert::TryInto;
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::fs::File;
-use astro_format::arrays;
+use astro_format;
 use std::str;
 
-pub fn get(key: &str, path: &str) -> Result<String, Box<dyn Error>> {
-
-    let mut file = File::open(path)?;
+pub fn run<K, V>(keys: &[&K], table_path: &str) -> Result<BTreeMap<K, V>, Box<dyn Error>>
     
-    let mut bloom_buffer_len = [0; 8];
+        where
+        
+            K: std::cmp::PartialEq + std::cmp::Ord + TryFrom<Vec<u8>> + Clone,
 
-    file.read_exact(&mut bloom_buffer_len)?;
+            V: TryFrom<Vec<u8>>,
+        
+            <K as TryFrom<Vec<u8>>>::Error: std::error::Error,
 
-    let key_buffer_file_index = u64::from_le_bytes(bloom_buffer_len) + 8;
+            <V as TryFrom<Vec<u8>>>::Error: std::error::Error
+            
+                {
 
-    file.seek(SeekFrom::Start(key_buffer_file_index))?;
+                    let mut file = File::open(table_path)?;
+                    
+                    let mut bloom_len = [0; 8];
 
-    let mut key_buffer_len = [0; 8];
+                    file.read_exact(&mut bloom_len)?;
 
-    file.read_exact(&mut key_buffer_len)?;
+                    let keys_index = u64::from_le_bytes(bloom_len) + 8;
 
-    let key_buffer_size = usize::from_be_bytes(key_buffer_len);
+                    file.seek(SeekFrom::Start(keys_index))?;
 
-    let mut key_buffer = vec![0; key_buffer_size];
+                    let mut keys_len = [0; 8];
 
-    file.read_exact(&mut key_buffer)?;
+                    file.read_exact(&mut keys_len)?;
 
-    let key_bytes = arrays::decode(&key_buffer)?;
+                    let keys_buffer_size = usize::from_be_bytes(keys_len);
 
-    let keys: Vec<&str> = key_bytes.iter().map(|x| str::from_utf8(x).unwrap()).collect();
+                    let mut keys_buffer = vec![0; keys_buffer_size];
 
-    match keys.iter().position(|&x| x == key) {
+                    file.read_exact(&mut keys_buffer)?;
 
-        Some(i) => {
+                    let keys_bytes = astro_format::decode(&keys_buffer)?;
 
-            let index_buffer_file_index = key_buffer_file_index + key_buffer_size as u64;
+                    let mut key_indices = Vec::new();
 
-            file.seek(SeekFrom::Start(index_buffer_file_index))?;
+                    for key_index_encoded in keys_bytes {
+                        
+                        let key_index_bytes = astro_format::decode(key_index_encoded)?;
 
-            let mut index_buffer_size_len = [0; 8];
+                        if key_index_bytes.len() == 2 {
 
-            file.read_exact(&mut index_buffer_size_len)?;
+                            match K::try_from(key_index_bytes[0].to_vec()) {
 
-            let index_buffer_size = usize::from_le_bytes(index_buffer_size_len);
+                                Ok(k) => {
 
-            let mut index_buffer = vec![0; index_buffer_size];
+                                    let index = u64::from_be_bytes(key_index_bytes[1].try_into()?);
 
-            file.read_exact(&mut index_buffer)?;
+                                    key_indices.push((k, index))
 
-            let index_bytes = arrays::decode(&index_buffer)?;
+                                },
 
-            let start = usize::from_le_bytes(index_bytes[i].try_into()?);
+                                _ => ()
+                                
+                            }
 
-            let end = usize::from_le_bytes(index_bytes[i + 1].try_into()?);
+                        }
 
-            let value_buffer_size = end - start;
+                    }
 
-            let value_buffer_file_index = index_buffer_file_index + index_buffer_size as u64;
+                    let mut key_values: BTreeMap<K, V> = BTreeMap::new();
 
-            file.seek(SeekFrom::Start(value_buffer_file_index))?;
+                    for &key in keys {
 
-            let mut value_buffer = vec![0; value_buffer_size];
+                        match keys.iter().position(|&x| x == key) {
 
-            file.read_exact(&mut value_buffer)?;
+                            Some(i) => {
+                                
+                                let start = key_indices[i].1;
 
-            let value = String::from_utf8(value_buffer)?;
+                                let end = key_indices[i + 1].1;
 
-            Ok(value)
+                                let value_buffer_size = (end - start) as usize;
 
-        },
+                                let value_index = keys_index + keys_buffer_size as u64 + start;
 
-        None => Err("Key not found!")?
+                                file.seek(SeekFrom::Start(value_index))?;
 
-    }
+                                let mut value_buffer = vec![0; value_buffer_size];
+
+                                file.read_exact(&mut value_buffer)?;
+
+                                match V::try_from(value_buffer) {
+
+                                    Ok(v) => {key_values.insert(key.clone(), v);},
+
+                                    _ => ()
+                                    
+                                }
+
+                            },
+
+                            None => ()
+
+                        }
+
+                    }
+
+                    Ok(key_values)
 
 }

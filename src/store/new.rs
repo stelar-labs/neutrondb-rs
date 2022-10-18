@@ -1,6 +1,4 @@
-use astro_format::string;
-use opis::Int;
-use crate::bloom::Bloom;
+use fides::BloomFilter;
 use crate::{Store, Table};
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -11,17 +9,26 @@ use std::io::BufReader;
 use std::path::Path;
 use std::str;
 
-impl Store {
+impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V> {
 
-    pub fn new(cache_size: &u64, name: &str) -> Result<Store, Box<dyn Error>> {
+    pub fn new(directory: &str) -> Result<Store<K,V>, Box<dyn Error>>
+    
+        where
+        
+            K: std::cmp::PartialEq + std::cmp::Ord + TryFrom<Vec<u8>> + Clone + From<Vec<u8>>,
+            K: Clone + Into<Vec<u8>>, V: Clone + Into<Vec<u8>>,
+            V: TryFrom<Vec<u8>> + Clone + From<Vec<u8>>,
+            <K as TryFrom<Vec<u8>>>::Error: std::error::Error,
+            <V as TryFrom<Vec<u8>>>::Error: std::error::Error {
 
-        let directory_location = format!("./neutrondb/{}", name);
+        
+        fs::create_dir_all(directory)?;
 
-        let graves_location = format!("{}/graves", &directory_location);
+        let graves_location = format!("{}/graves.txt", &directory);
 
         let graves_path = Path::new(&graves_location);
 
-        let mut graves = Vec::new();
+        let mut graves: Vec<K> = Vec::new();
 
         if graves_path.is_file() {
 
@@ -33,7 +40,15 @@ impl Store {
                 
                 let line = line?;
 
-                graves.push(line);
+                let k_bytes = hex::decode(&line)?;
+
+                    match K::try_from(k_bytes) {
+                        
+                        Ok(k) => graves.push(k),
+
+                        _ => ()
+                    
+                    }
             
             }
             
@@ -41,7 +56,7 @@ impl Store {
 
         let mut tables = Vec::new();
 
-        let tables_location = format!("{}/levels", &directory_location);
+        let tables_location = format!("{}/levels", &directory);
 
         let tables_path = Path::new(&tables_location);
 
@@ -71,23 +86,23 @@ impl Store {
 
                             let mut file = File::open(table_path)?;
 
-                            let mut bloom_buffer_size_len = [0; 8];
+                            let mut bloom_size_buffer = [0; 8];
 
-                            file.read_exact(&mut bloom_buffer_size_len)?;
+                            file.read_exact(&mut bloom_size_buffer)?;
 
-                            let bloom_buffer_size = usize::from_le_bytes(bloom_buffer_size_len);
+                            let bloom_size = usize::from_le_bytes(bloom_size_buffer);
 
-                            let mut bloom_buffer = vec![0; bloom_buffer_size];
+                            let mut bloom_buffer = vec![0; bloom_size];
 
                             file.seek(SeekFrom::Start(8))?;
 
                             file.read_exact(&mut bloom_buffer)?;
 
-                            let bloom = Bloom { bits: Int::from_bytes(&bloom_buffer).magnitude };
+                            let bloom_filter = BloomFilter::from(&bloom_buffer[..]);
 
                             let table = Table {
-                                bloom: bloom,
-                                level: level,
+                                bloom_filter,
+                                level,
                                 name: table_name,
                                 size: table.metadata()?.len(),
                             };
@@ -101,9 +116,9 @@ impl Store {
             }
         }
 
-        let mut cache = BTreeMap::new();
+        let mut cache: BTreeMap<K, V> = BTreeMap::new();
 
-        let logs_location = format!("{}/logs", &directory_location);
+        let logs_location = format!("{}/logs.txt", &directory);
 
         let logs_path = Path::new(&logs_location);
 
@@ -123,27 +138,43 @@ impl Store {
                     
                     "put" => {
 
-                        let k_bytes = string::decode::bytes(split[1])?;
-                        
-                        let k = String::from_utf8(k_bytes)?;
+                        let k_bytes = hex::decode(&split[1])?;
 
-                        let v_bytes = string::decode::bytes(split[2])?;
+                        match K::try_from(k_bytes) {
 
-                        let v = String::from_utf8(v_bytes)?;
+                            Ok(k) => {
 
-                        graves.retain(|x| x != &k);
+                                let v_bytes = hex::decode(&split[2])?;
+
+                                match V::try_from(v_bytes) {
+
+                                    Ok(v) => {
+
+                                        graves.retain(|x| x != &k);
                         
-                        cache.insert(k, v);
-                        
+                                        cache.insert(k, v);
+                                    },
+
+                                    _ => ()
+
+                                }
+
+                            },
+
+                            _ => ()
+
+                        }
+
                     },
 
                     "del" => {
                         
-                        let k_bytes = string::decode::bytes(split[1])?;
-                        
-                        let k = String::from_utf8(k_bytes)?;
+                        let k_bytes = hex::decode(&split[1])?;
 
-                        graves.push(k)
+                        match K::try_from(k_bytes) {
+                            Ok(k) => graves.push(k),
+                            _ => ()
+                        }
 
                     },
                     
@@ -154,22 +185,25 @@ impl Store {
         }
 
         let mut store = Store {
-            cache: cache,
-            cache_size: *cache_size,
-            directory_location: directory_location,
-            graves: graves,
-            tables: tables
+            cache,
+            directory: directory.to_string(),
+            graves,
+            tables
         };
 
-        if logs_path.metadata()?.len() > store.cache_size {
+        if logs_path.is_file() {
 
-            store.flush()?;
-        
-            fs::remove_file(logs_path)?;
+            if logs_path.metadata()?.len() > 1000000 {
 
-            store.cache.clear();
+                store.flush()?;
+            
+                fs::remove_file(logs_path)?;
 
-            store.compaction()?;
+                store.cache.clear();
+
+                store.compaction()?;
+
+            }
 
         }
 

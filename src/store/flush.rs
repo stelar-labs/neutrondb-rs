@@ -1,89 +1,98 @@
-use astro_format::string;
-use crate::bloom::Bloom;
+use fides::BloomFilter;
 use crate::{neutron, Store, Table};
-use opis::Int;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
+use opis::Int;
 
-impl Store {
+impl<K,V> Store<K,V> {
 
-    pub fn flush(&mut self) -> Result<(), Box<dyn Error>> {
-
-        let level_1_path = format!(
-            "{}/levels/1",
-            self.directory_location
-        );
+    pub fn flush(&mut self) -> Result<(), Box<dyn Error>>
+    
+        where
         
-        fs::create_dir_all(&level_1_path)?;
-
-        let current_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-
-        let table_path = format!(
-            "{}/{}",
-            &level_1_path,
-            &current_time
-        );
+            K: Clone + Into<Vec<u8>>,
+            
+            V: Clone + Into<Vec<u8>>
         
-        let table_location = Path::new(&table_path);
+                {
 
-        let bloom = self.cache
-            .iter()
-            .fold(
-                Bloom::new(self.cache.len()),
-                |acc, x|
-                { acc.insert(&x.0) }
-            );
+                    let level_path = format!("{}/levels/1",self.directory);
+                    
+                    fs::create_dir_all(&level_path)?;
 
-        let table_buffer = neutron::create(
-            Int { magnitude: bloom.bits.clone(), sign: false }.to_bytes(),
-            self.cache.clone()
-        );
+                    let current_time = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis();
 
-        fs::write(table_location, &table_buffer)?;
+                    let table_path = format!("{}/{}.neutron", &level_path, &current_time);
+                    
+                    let table_location = Path::new(&table_path);
 
-        let table = Table {
-            bloom: bloom,
-            level: 1_u8,
-            name: format!("{}", current_time),
-            size: table_location.metadata()?.len()
-        };
+                    let empty_bloom_filter = BloomFilter::new(self.cache.len());
 
-        self.tables.push(table);
+                    let bloom_filter = self.cache
+                        .iter()
+                        .fold(
+                            empty_bloom_filter,
+                            |mut acc, x| {
+                                
+                                let k_bytes: Vec<u8> = x.0.clone().into();
 
-        let graves_path = format!(
-            "{}/graves",
-            &self.directory_location
-        );
+                                acc.insert(&k_bytes);
+                                
+                                acc
+                            
+                            }
+                        );
 
-        let graves_location = Path::new(&graves_path);
+                    let table_buffer = neutron::create::run(
+                        Int::from(&bloom_filter.bits()[..]).into(),
+                        &self.cache
+                    );
 
-        if graves_location.is_file() {
+                    fs::write(table_location, &table_buffer)?;
 
-            fs::remove_file(graves_location)?;
+                    let table = Table {
+                        bloom_filter,
+                        level: 1_u8,
+                        name: format!("{}", current_time),
+                        size: table_location.metadata()?.len()
+                    };
 
-            let graves_input = self.graves
-                .iter()
-                .fold(
-                    String::new(),
-                    |acc, x|
-                    format!(
-                        "{}{}\n",
-                        acc,
-                        string::encode::bytes(x.as_bytes())
-                    )
-                );
+                    self.tables.push(table);
 
-            fs::write(graves_location, graves_input)?;
+                    let graves_path = format!("{}/graves.txt", &self.directory);
 
-        };
+                    let graves_location = Path::new(&graves_path);
 
-        Ok(())
+                    if graves_location.is_file() {
 
-    }
+                        fs::remove_file(graves_location)?;
+
+                        let graves_input = self.graves
+                            .iter()
+                            .fold(
+                                String::new(),
+                                |mut acc, x| {
+
+                                    let g_bytes: Vec<u8> = x.clone().into();
+
+                                    acc = format!("{}{}\n", acc, hex::encode(g_bytes));
+
+                                    acc
+                                    
+                                }
+                            );
+
+                        fs::write(graves_location, graves_input)?;
+
+                    };
+
+                    Ok(())
+
+                }
 
 }

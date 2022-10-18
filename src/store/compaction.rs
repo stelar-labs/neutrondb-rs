@@ -1,105 +1,136 @@
-use crate::bloom::Bloom;
+use fides::BloomFilter;
 use crate::{Table, Store, neutron};
 use opis::Int;
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-impl Store {
+impl<K,V> Store<K,V> {
     
-    pub fn compaction(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn compaction(&mut self) -> Result<(), Box<dyn Error>>
+    
+        where
 
-        for level in 1..=12 {
+            K: std::clone::Clone + std::cmp::PartialEq + std::cmp::Ord + Into<Vec<u8>> + From<Vec<u8>>,
 
-            let mut tables: Vec<&Table> = self.tables
-                .iter()
-                .filter(|x| x.level == level)
-                .collect();
+            V: std::clone::Clone + Into<Vec<u8>> + From<Vec<u8>>
+            
+                {
 
-            let level_size = tables
-                .iter()
-                .fold(0, |acc, x| acc + x.size);
+                    for level in 1..=10 {
 
-            if level_size > (10_u64.pow(level as u32) * 1000000) {
+                        let mut tables: Vec<&Table> = self.tables
+                            .iter()
+                            .filter(|x| x.level == level)
+                            .collect();
 
-                tables.sort_by_key(|x| x.name.to_string());
+                        let level_size = tables
+                            .iter()
+                            .fold(0, |acc, x| acc + x.size);
 
-                let level_path = format!("{}/tables/level_{}", &self.directory_location, &level);
+                        if level_size > (10_u64.pow(level as u32) * 1000000) {
 
-                let mut level_data: Vec<(String, String)> = tables
-                    .iter()
-                    .fold(vec![], | acc, x | {
+                            tables.sort_by_key(|x| x.name.to_string());
 
-                        let table_path = format!("{}/{}", &level_path, x.name);
+                            let level_path = format!("{}/tables/level_{}", &self.directory, &level);
 
-                        let table_buffer = fs::read(&table_path).unwrap();
+                            let mut level_data : Vec<(K,V)> = Vec::new();
 
-                        fs::remove_file(table_path).unwrap();
+                            for table in tables {
 
-                        [acc, neutron::get_all(&table_buffer).unwrap()].concat()
+                                let table_path = format!("{}/{}.neutron", &level_path, table.name);
 
-                    });
+                                let table_buffer = fs::read(&table_path).unwrap();
 
-                level_data.retain(|x| self.graves.contains(&x.0) == false);
+                                fs::remove_file(table_path).unwrap();
 
-                level_data.reverse();
+                                let table_objects = neutron::get_all::run(&table_buffer)?;
 
-                level_data.sort_by_key(|x| x.0.to_owned());
+                                level_data = [level_data, table_objects].concat();
 
-                level_data.dedup_by_key(|x| x.0.to_owned());
+                            }
 
-                let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+                            level_data.retain(|x| self.graves.contains(&x.0) == false);
 
-                let next_level = level + 1;
+                            level_data.reverse();
 
-                let next_level_path = format!(
-                    "{}/tables/level_{}",
-                    &self.directory_location,
-                    &next_level
-                );
+                            level_data.sort_by_key(|x| x.0.to_owned());
 
-                fs::create_dir_all(&next_level_path)?;
+                            level_data.dedup_by_key(|x| x.0.to_owned());
 
-                let compact_path_str = format!(
-                    "{}/{}",
-                    &next_level_path,
-                    &current_time
-                );
+                            let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 
-                let compact_path = Path::new(&compact_path_str);
+                            let next_level = level + 1;
 
-                let compact_bloom_filter = level_data
-                    .iter()
-                    .fold(
-                        Bloom::new(self.cache.len()),
-                        |acc, x|
-                        { acc.insert(&x.0) }
-                    );
+                            let next_level_path = format!(
+                                "{}/tables/level_{}",
+                                &self.directory,
+                                &next_level
+                            );
 
-                let compact_buffer = neutron::create(
-                    Int { magnitude: compact_bloom_filter.bits.clone(), sign: false }.to_bytes(),
-                    level_data.into_iter().collect()
-                );
+                            fs::create_dir_all(&next_level_path)?;
 
-                fs::write(&compact_path, &compact_buffer)?;
+                            let compact_path_str = format!(
+                                "{}/{}.neutron",
+                                &next_level_path,
+                                &current_time
+                            );
 
-                self.tables.retain(|x| x.level != level);
+                            let compact_path = Path::new(&compact_path_str);
 
-                let table = Table {
-                    bloom: compact_bloom_filter,
-                    level: next_level,
-                    name: current_time.to_string(),
-                    size: compact_path.metadata()?.len()
-                };
+                            let empty_bloom_filter = BloomFilter::new(level_data.len());
 
-                self.tables.push(table);
+                            let bloom_filter = level_data
+                                .iter()
+                                .fold(
+                                    empty_bloom_filter,
+                                    |mut acc, x| {
 
-            }
+                                        let k = x.0.clone();
 
-        }
+                                        let k_bytes: Vec<u8> = k.into();
 
-        Ok(())
-    }
+                                        acc.insert(&k_bytes);
+                                        
+                                        acc
+                                    
+                                    }
+                                );
+
+                            let bloom_filter_bytes: Vec<u8> = Int::from(&bloom_filter.bits()[..]).into();
+
+                            let table_map = level_data
+                                .iter()
+                                .fold(BTreeMap::new(), |mut acc, x| {
+                                    acc.insert(x.0.clone(), x.1.clone());
+                                    acc
+                                });
+                                
+                            let table_buffer = neutron::create::run(
+                                bloom_filter_bytes,
+                                &table_map
+                            );
+
+                            fs::write(&compact_path, &table_buffer)?;
+
+                            self.tables.retain(|x| x.level != level);
+
+                            let table = Table {
+                                bloom_filter,
+                                level: next_level,
+                                name: current_time.to_string(),
+                                size: compact_path.metadata()?.len()
+                            };
+
+                            self.tables.push(table);
+
+                        }
+
+                    }
+
+                    Ok(())
+                }
 
 }
