@@ -1,6 +1,6 @@
 [package]
 name = "neutrondb"
-version = "4.0.0"
+version = "5.0.0"
 edition = "2021"
 license = "MIT"
 description = "NeutronDB is a log-structured merge-tree key-value store for any implemented data type."
@@ -10,5 +10,5 @@ readme = "README.md"
 [dependencies]
 astro-format = "1.0.0"
 hex = "0.4.3"
-fides = "3.0.0"
-opis = "4.1.0"
+fides = "3.0.3"
+opis = "5.0.2"

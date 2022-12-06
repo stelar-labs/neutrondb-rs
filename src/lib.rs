@@ -1,4 +1,3 @@
-mod neutron;
 mod store;
 use std::collections::BTreeMap;
 use fides::BloomFilter;
@@ -14,6 +13,7 @@ pub struct Store<K,V> {
 #[derive(Debug)]
 pub struct Table {
     pub bloom_filter: BloomFilter,
+    pub count: u64,
     pub level: u8,
     pub name: String,
     pub size: u64

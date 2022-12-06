@@ -1,10 +1,11 @@
 use fides::BloomFilter;
-use crate::{neutron, Store, Table};
+use crate::{Store, Table};
 use std::error::Error;
-use std::fs;
+use std::fs::{self, File};
+use std::fs::OpenOptions;
+use std::io::{Write, BufReader, BufRead};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
-use opis::Int;
 
 impl<K,V> Store<K,V> {
 
@@ -18,53 +19,102 @@ impl<K,V> Store<K,V> {
         
                 {
 
-                    let level_path = format!("{}/levels/1",self.directory);
-                    
-                    fs::create_dir_all(&level_path)?;
-
                     let current_time = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .unwrap()
                         .as_millis();
 
-                    let table_path = format!("{}/{}.neutron", &level_path, &current_time);
-                    
-                    let table_location = Path::new(&table_path);
+                    let logs_path_str = format!("{}/logs", &self.directory);
 
-                    let empty_bloom_filter = BloomFilter::new(self.cache.len());
+                    let logs_path = Path::new(&logs_path_str);
 
-                    let bloom_filter = self.cache
-                        .iter()
-                        .fold(
-                            empty_bloom_filter,
-                            |mut acc, x| {
-                                
-                                let k_bytes: Vec<u8> = x.0.clone().into();
+                    let mut logs_file = OpenOptions::new()
+                        .append(true)
+                        .create(true)
+                        .open(logs_path)?;
 
-                                acc.insert(&k_bytes);
-                                
-                                acc
-                            
-                            }
-                        );
+                    write!(
+                        logs_file,
+                        "flush {} table creation started",
+                        current_time
+                    )?;
 
-                    let table_buffer = neutron::create::run(
-                        Int::from(&bloom_filter.bits()[..]).into(),
-                        &self.cache
+                    let level_path = format!(
+                        "{}/levels/1",
+                        self.directory
                     );
+                    
+                    fs::create_dir_all(&level_path)?;
 
-                    fs::write(table_location, &table_buffer)?;
+                    let table_path_str = format!(
+                        "{}/{}.neutron",
+                        &level_path,
+                        &current_time
+                    );
+                    
+                    let table_path = Path::new(&table_path_str);
+
+                    let mut table_file = OpenOptions::new()
+                        .append(true)
+                        .create(true)
+                        .open(table_path)?;
+
+                    write!(
+                        table_file,
+                        "neutrondb table version 1.0\n\n"
+                    )?;
+                    
+                    let mut bloom_filter = BloomFilter::new(self.cache.len());
+
+                    for (key, value) in &self.cache {
+                        
+                        let k_bytes: Vec<u8> = key.clone().into();
+
+                        bloom_filter.insert(&k_bytes);
+
+                        let v_bytes: Vec<u8> = value.clone().into();
+                        
+                        write!(
+                            table_file,
+                            "{} {}\n",
+                            hex::encode(&k_bytes),
+                            hex::encode(&v_bytes)
+                        )?;
+
+                    }
+
+                    let bloom_filter_bytes: Vec<u8> = (&bloom_filter).into();
+
+                    write!(
+                        table_file,
+                        "\n{}\n",
+                        hex::encode(&bloom_filter_bytes)
+                    )?;
+
+                    write!(
+                        logs_file,
+                        "flush {} table creation finished",
+                        current_time
+                    )?;
 
                     let table = Table {
                         bloom_filter,
+                        count: self.cache.len() as u64,
                         level: 1_u8,
-                        name: format!("{}", current_time),
-                        size: table_location.metadata()?.len()
+                        name: format!("{}.neutron", current_time),
+                        size: table_file.metadata()?.len()
                     };
 
                     self.tables.push(table);
 
-                    let graves_path = format!("{}/graves.txt", &self.directory);
+                    self.tables.sort_by_key(|k| k.name.clone());
+
+                    self.tables.reverse();
+
+                    let graves_path = format!(
+                        "{}/graves",
+                        &self.directory
+                    );
 
                     let graves_location = Path::new(&graves_path);
 
@@ -90,6 +140,12 @@ impl<K,V> Store<K,V> {
                         fs::write(graves_location, graves_input)?;
 
                     };
+
+                    write!(
+                        logs_file,
+                        "flush {} graves updated",
+                        current_time
+                    )?;
 
                     Ok(())
 

@@ -24,7 +24,7 @@ impl<K,V> Store<K,V> {
                         
                         self.graves.push(key.clone());
 
-                        let logs_path_str = format!("{}/logs.txt", &self.directory);
+                        let logs_path_str = format!("{}/logs", &self.directory);
                         
                         let logs_path = Path::new(&logs_path_str); 
 

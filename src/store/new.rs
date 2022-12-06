@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs::File;
 use std::fs;
-use std::io::{BufRead, Read, SeekFrom, Seek};
+use std::io::BufRead;
 use std::io::BufReader;
 use std::path::Path;
 use std::str;
@@ -17,14 +17,17 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V> {
         
             K: std::cmp::PartialEq + std::cmp::Ord + TryFrom<Vec<u8>> + Clone + From<Vec<u8>>,
             K: Clone + Into<Vec<u8>>, V: Clone + Into<Vec<u8>>,
-            V: TryFrom<Vec<u8>> + Clone + From<Vec<u8>>,
+            V: TryFrom<Vec<u8>> + Clone + From<Vec<u8>> + std::cmp::PartialEq + std::cmp::Ord,
             <K as TryFrom<Vec<u8>>>::Error: std::error::Error,
             <V as TryFrom<Vec<u8>>>::Error: std::error::Error {
 
+        if !Path::new(directory).is_dir() {
         
-        fs::create_dir_all(directory)?;
+            fs::create_dir_all(directory)?;
 
-        let graves_location = format!("{}/graves.txt", &directory);
+        }
+
+        let graves_location = format!("{}/graves", &directory);
 
         let graves_path = Path::new(&graves_location);
 
@@ -83,28 +86,30 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V> {
                         let table_name = table.file_name().into_string().unwrap();
 
                         if table_path.is_file() {
+                            
+                            let mut count = BufReader::new(File::open(&table_path).unwrap())
+                                .lines()
+                                .count();
 
-                            let mut file = File::open(table_path)?;
+                            count -= 4;
 
-                            let mut bloom_size_buffer = [0; 8];
+                            let bloom_filter_str = BufReader::new(
+                                    File::open(table_path).unwrap()
+                                )
+                                .lines()
+                                .last()
+                                .unwrap()?;
 
-                            file.read_exact(&mut bloom_size_buffer)?;
+                            let bloom_filter_bytes: Vec<u8> = hex::decode(&bloom_filter_str)?;
 
-                            let bloom_size = usize::from_le_bytes(bloom_size_buffer);
-
-                            let mut bloom_buffer = vec![0; bloom_size];
-
-                            file.seek(SeekFrom::Start(8))?;
-
-                            file.read_exact(&mut bloom_buffer)?;
-
-                            let bloom_filter = BloomFilter::from(&bloom_buffer[..]);
+                            let bloom_filter = BloomFilter::try_from(&bloom_filter_bytes[..])?;
 
                             let table = Table {
                                 bloom_filter,
                                 level,
                                 name: table_name,
                                 size: table.metadata()?.len(),
+                                count: count as u64
                             };
 
                             tables.push(table)
@@ -112,13 +117,20 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V> {
                         }
 
                     }
+
+                    tables.sort_by_key(|k| k.name.clone());
+
+                    tables.reverse()
+
                 }
+
             }
+
         }
 
         let mut cache: BTreeMap<K, V> = BTreeMap::new();
 
-        let logs_location = format!("{}/logs.txt", &directory);
+        let logs_location = format!("{}/logs", &directory);
 
         let logs_path = Path::new(&logs_location);
 
@@ -193,7 +205,7 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V> {
 
         if logs_path.is_file() {
 
-            if logs_path.metadata()?.len() > 1000000 {
+            if logs_path.metadata()?.len() > 1000 {
 
                 store.flush()?;
             

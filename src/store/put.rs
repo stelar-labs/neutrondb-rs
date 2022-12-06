@@ -14,7 +14,7 @@ impl<K,V> Store<K,V> {
         
             K: Clone + std::cmp::Ord + From<Vec<u8>> + Into<Vec<u8>> + std::fmt::Debug,
 
-            V: Clone + From<Vec<u8>> + Into<Vec<u8>> + std::fmt::Debug
+            V: Clone + From<Vec<u8>> + Into<Vec<u8>> + std::fmt::Debug + std::cmp::Ord
 
             {
 
@@ -26,7 +26,7 @@ impl<K,V> Store<K,V> {
 
                 let logs_put: String = format!("put {} {}\n", hex::encode(&k_bytes), hex::encode(&v_bytes));
 
-                let logs_path_str = format!("{}/logs.txt", &self.directory);
+                let logs_path_str = format!("{}/logs", &self.directory);
 
                 let logs_path = Path::new(&logs_path_str);
 
@@ -43,6 +43,8 @@ impl<K,V> Store<K,V> {
                     self.cache.clear();
 
                     self.compaction()?;
+
+                    
 
                 }
 

@@ -8,7 +8,7 @@ NeutronDB is a log-structured merge-tree key-value store for any implemented dat
 
 ```text
 [dependencies]
-neutrondb = "4.0.0"
+neutrondb = "5.0.0"
 ```
 
 ### Module.rs
@@ -21,49 +21,33 @@ use neutrondb::Store;
 
 ### Files
 
-- Logs: Recent puts and deletes
-- Table: Non recent key-values
-- Graves: Deleted keys
-
 `Neutron Logs`
 
 ```text
 
-    + - - - - - - - - - - - - - - - - - - - - - +
-    |                                           |
-    |   + - - - - - - - +   + - - - - - - - +   |
-    |   |   Log 1 Type  |   |   Log 1 Data  |   |
-    |   + - - - - - - - +   + - - - - - - - +   |
-    |                                           |
-    |                    ...                    |   
-    + - - - - - - - - - - - - - - - - - - - - - +
+    +-------------------+
+    |  Log Type & Data  |
+    |  ...              |
+    +-------------------+
 
 ```
-
-Type: Data
-
-- put: key, value
-- delete: key
 
 `Neutron Table`
 
 ```text
 
-    + - - - - - - - - - - - - - +
-    |                           |
-    |   + - - - - - - - - - +   |
-    |   |   Bloom Filter    |   |
-    |   + - - - - - - - - - +   |
-    |                           |
-    |   + - - - - - - - - - +   |
-    |   |       Keys        |   |
-    |   + - - - - - - - - - +   |
-    |                           |
-    |   + - - - - - - - - - +   |
-    |   |       Values      |   |
-    |   + - - - - - - - - - +   |
-    |                           |
-    + - - - - - - - - - - - - - +
+    +-----------+
+    |  Version  |
+    +-----------+
+
+    +-----------------+
+    |  Keys & Values  |
+    |  ...            |
+    +-----------------+
+
+    +----------------+
+    |  Bloom Filter  |
+    +----------------+
 
 ```
 
@@ -71,14 +55,10 @@ Type: Data
 
 ```text
 
-    + - - - - - - - - - +
-    |                   |
-    |   + - - - - - +   |
-    |   |   Key 1   |   |
-    |   + - - - - - +   |
-    |                   |
-    |       ....        |
-    + - - - - - - - - - +
+    +--------+
+    |  Keys  |
+    |  ...   |
+    +--------+
 
 ```
 
@@ -110,4 +90,14 @@ let account = accounts_store.get(&Hash)?;
 accounts_store.delete(&Hash)?;
 ```
 
-2022-10-18
+## Future
+
+- 🚀 batching requests for performance
+- 📥 store.put_many(&[(K,V)])
+- 📤 store.get_many(&[K]) -> Vec<(K,V)>
+- 🦾 store.iter(lambda) -> Vec<_>
+- 🧠 store.fold(accumulator, lambda) -> accumulator
+- 🔍 store.any(lambda) -> V
+- 🐘 store.memory(size)
+
+2022-12-07
