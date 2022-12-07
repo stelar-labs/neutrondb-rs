@@ -2,6 +2,16 @@
 
 NeutronDB is a log-structured merge-tree key-value store for any implemented data type.
 
+## Author
+
+Roy R. O. Okello
+
+[Email](mailto:royokello@protonmail.com)
+
+[Github](https://github.com/royokello)
+
+[Twitter](https://twitter.com/RealOkello)
+
 ## Usage
 
 ### Cargo.toml

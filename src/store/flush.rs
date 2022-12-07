@@ -1,11 +1,11 @@
 use fides::BloomFilter;
 use crate::{Store, Table};
 use std::error::Error;
-use std::fs::{self, File};
+use std::fs;
 use std::fs::OpenOptions;
-use std::io::{Write, BufReader, BufRead};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::io::Write;
 
 impl<K,V> Store<K,V> {
 

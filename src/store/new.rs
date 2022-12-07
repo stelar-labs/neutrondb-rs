@@ -205,7 +205,7 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V> {
 
         if logs_path.is_file() {
 
-            if logs_path.metadata()?.len() > 1000 {
+            if logs_path.metadata()?.len() > 1000000 {
 
                 store.flush()?;
             
