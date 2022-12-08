@@ -1,7 +1,6 @@
 use fides::BloomFilter;
 use crate::{Table, Store};
 use std::error::Error;
-use std::fmt::Debug;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, BufRead};
 use std::path::Path;
@@ -11,13 +10,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 impl<K,V> Store<K,V> {
     
     pub fn compaction(&mut self) -> Result<(), Box<dyn Error>>
-    
     where
-
-    K: std::clone::Clone + std::cmp::PartialEq + std::cmp::Ord + Into<Vec<u8>> + TryFrom<Vec<u8>> + Debug,
-
-    V: std::clone::Clone + Into<Vec<u8>> + TryFrom<Vec<u8>> + std::cmp::PartialEq + std::cmp::Ord + Debug
-            
+    K: std::clone::Clone + std::cmp::PartialEq + std::cmp::Ord + Into<Vec<u8>> + TryFrom<Vec<u8>>,
+    V: std::clone::Clone + Into<Vec<u8>> + TryFrom<Vec<u8>> + std::cmp::PartialEq + std::cmp::Ord
     {
 
         for level in 1..=10 {

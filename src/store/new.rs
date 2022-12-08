@@ -12,14 +12,13 @@ use std::str;
 impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V> {
 
     pub fn new(directory: &str) -> Result<Store<K,V>, Box<dyn Error>>
-    
-        where
-        
-            K: std::cmp::PartialEq + std::cmp::Ord + TryFrom<Vec<u8>> + Clone,
-            K: Clone + Into<Vec<u8>>, V: Clone + Into<Vec<u8>>,
-            V: TryFrom<Vec<u8>> + Clone + From<Vec<u8>> + std::cmp::PartialEq + std::cmp::Ord,
-            <K as TryFrom<Vec<u8>>>::Error: std::error::Error,
-            <V as TryFrom<Vec<u8>>>::Error: std::error::Error {
+    where
+    K: std::cmp::PartialEq + std::cmp::Ord + TryFrom<Vec<u8>> + Into<Vec<u8>> + Clone,
+    V: Into<Vec<u8>> + TryFrom<Vec<u8>> + Clone + std::cmp::PartialEq + std::cmp::Ord,
+    <K as TryFrom<Vec<u8>>>::Error: std::error::Error,
+    <V as TryFrom<Vec<u8>>>::Error: std::error::Error
+            
+    {
 
         if !Path::new(directory).is_dir() {
         

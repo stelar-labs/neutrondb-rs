@@ -12,9 +12,9 @@ impl<K,V> Store<K,V> {
     
         where
         
-            K: Clone + std::cmp::Ord + From<Vec<u8>> + Into<Vec<u8>> + std::fmt::Debug,
+            K: Clone + std::cmp::Ord + TryFrom<Vec<u8>> + Into<Vec<u8>> + std::fmt::Debug,
 
-            V: Clone + From<Vec<u8>> + Into<Vec<u8>> + std::fmt::Debug + std::cmp::Ord
+            V: Clone + TryFrom<Vec<u8>> + Into<Vec<u8>> + std::fmt::Debug + std::cmp::Ord
 
             {
 

@@ -10,12 +10,9 @@ use std::io::Write;
 impl<K,V> Store<K,V> {
 
     pub fn flush(&mut self) -> Result<(), Box<dyn Error>>
-    
-        where
-        
-            K: Clone + Into<Vec<u8>>,
-            
-            V: Clone + Into<Vec<u8>>
+    where
+    K: Clone + Into<Vec<u8>>,
+    V: Clone + Into<Vec<u8>>
         
                 {
 

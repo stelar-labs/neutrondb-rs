@@ -8,16 +8,12 @@ use crate::Store;
 impl<K,V> Store<K,V> {
 
     pub fn get(&self, key: &K) -> Result<V, Box<dyn Error>>
-    
-        where 
-        
-            K: std::cmp::PartialEq + std::cmp::Ord + Into<Vec<u8>> + Clone + TryFrom<Vec<u8>> + From<Vec<u8>>,
-            
-            V: Clone + TryFrom<Vec<u8>> + From<Vec<u8>>,
-        
-            <K as TryFrom<Vec<u8>>>::Error: std::error::Error,
-
-            <V as TryFrom<Vec<u8>>>::Error: std::error::Error {
+    where 
+    K: std::cmp::PartialEq + std::cmp::Ord + Into<Vec<u8>> + Clone + TryFrom<Vec<u8>>,
+    V: Clone + TryFrom<Vec<u8>>,
+    <K as TryFrom<Vec<u8>>>::Error: std::error::Error,
+    <V as TryFrom<Vec<u8>>>::Error: std::error::Error
+    {
             
         match self.graves.iter().find(|&x| x == key) {
 
@@ -118,49 +114,31 @@ impl<K,V> Store<K,V> {
 }
 
 fn extract_key<K>(arg: &[&str]) -> Result<K, Box<dyn Error>>
-
-where K: From<Vec<u8>>
-
+where K: TryFrom<Vec<u8>>
 {
-    
     if arg.len() == 2 {
-
         let k_bytes_hex = arg[0];
-        
         let k_bytes = hex::decode(k_bytes_hex)?;
-        
-        let k = K::from(k_bytes);
-
-        Ok(k)
-    
+        match K::try_from(k_bytes) {
+            Ok(k) => Ok(k),
+            Err(_) => Err("Not Supported!")?
+        }
     } else {
-        
         Err("Not Supported!")?
-
     }
-
 }
 
 fn extract_value<V>(arg: &[&str]) -> Result<V, Box<dyn Error>>
-
-where V: From<Vec<u8>>
-
+where V: TryFrom<Vec<u8>>
 {
-    
     if arg.len() == 2 {
-
         let v_bytes_hex = arg[1];
-        
         let v_bytes = hex::decode(v_bytes_hex)?;
-        
-        let v = V::from(v_bytes);
-
-        Ok(v)
-    
+        match V::try_from(v_bytes) {
+            Ok(v) => Ok(v),
+            Err(_) => Err("Not Supported!")?
+        }
     } else {
-        
         Err("Not Supported!")?
-
     }
-
 }

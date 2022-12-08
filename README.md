@@ -18,7 +18,7 @@ Roy R. O. Okello
 
 ```text
 [dependencies]
-neutrondb = "5.0.1"
+neutrondb = "5.0.2"
 ```
 
 ### Module.rs
