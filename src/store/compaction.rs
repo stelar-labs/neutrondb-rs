@@ -14,9 +14,9 @@ impl<K,V> Store<K,V> {
     
     where
 
-    K: std::clone::Clone + std::cmp::PartialEq + std::cmp::Ord + Into<Vec<u8>> + From<Vec<u8>> + Debug,
+    K: std::clone::Clone + std::cmp::PartialEq + std::cmp::Ord + Into<Vec<u8>> + TryFrom<Vec<u8>> + Debug,
 
-    V: std::clone::Clone + Into<Vec<u8>> + From<Vec<u8>> + std::cmp::PartialEq + std::cmp::Ord + Debug
+    V: std::clone::Clone + Into<Vec<u8>> + TryFrom<Vec<u8>> + std::cmp::PartialEq + std::cmp::Ord + Debug
             
     {
 
@@ -203,33 +203,26 @@ impl<K,V> Store<K,V> {
 }
 
 fn key_and_val<K,V>(val: &str) -> Result<(K,V), Box<dyn Error>> 
-
-where K: From<Vec<u8>>, V: From<Vec<u8>>
-
+where K: TryFrom<Vec<u8>>, V: TryFrom<Vec<u8>>
 {
-
     let spt_val: Vec<&str> = val.split(" ").collect();
-
     if spt_val.len() == 2 {
-
         let k_bytes_hex = spt_val[0];
-        
         let k_bytes = hex::decode(k_bytes_hex)?;
-        
-        let k = K::from(k_bytes);
-
-        let v_bytes_hex = spt_val[1];
-        
-        let v_bytes = hex::decode(v_bytes_hex)?;
-        
-        let v = V::from(v_bytes);
-
-        Ok((k,v))
-    
+        match K::try_from(k_bytes) {
+            Ok(k) => {
+                let v_bytes_hex = spt_val[1];
+                let v_bytes = hex::decode(v_bytes_hex)?;
+                match V::try_from(v_bytes) {
+                    Ok(v) => {
+                        Ok((k,v))
+                    },
+                    Err(_) => todo!(),
+                }
+            },
+            Err(_) => todo!(),
+        }
     } else {
-        
         Err("Not Supported!")?
-
     }
-
 }
