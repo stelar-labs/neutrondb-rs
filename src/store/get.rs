@@ -82,30 +82,19 @@ impl<K,V> Store<K,V> {
                                                 } else {
                                                     
                                                     high = mid_idx - 1
-
                                                 }
-
                                             }
-
                                         },
-
                                         false => ()
-
                                     }
-
                                 },
-
-                                _ => ()
-                                
+                                _ => ()               
                             }
-
                         }
-
                         match res {
                             Some(r) => Ok(r),
                             None => Err("Not found!")?
                         }
-
                     }
                 }
             }

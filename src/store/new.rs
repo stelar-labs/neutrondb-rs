@@ -14,7 +14,7 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V> {
     pub fn new(directory: &str) -> Result<Store<K,V>, Box<dyn Error>>
     where
     K: std::cmp::PartialEq + std::cmp::Ord + TryFrom<Vec<u8>> + Into<Vec<u8>> + Clone,
-    V: Into<Vec<u8>> + TryFrom<Vec<u8>> + Clone + std::cmp::PartialEq + std::cmp::Ord,
+    V: Into<Vec<u8>> + TryFrom<Vec<u8>> + Clone,
     <K as TryFrom<Vec<u8>>>::Error: std::error::Error,
     <V as TryFrom<Vec<u8>>>::Error: std::error::Error
             
