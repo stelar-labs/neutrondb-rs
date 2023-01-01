@@ -18,7 +18,7 @@ Roy R. O. Okello
 
 ```text
 [dependencies]
-neutrondb = "5.0.3"
+neutrondb = "5.0.4"
 ```
 
 ### Module.rs
@@ -109,5 +109,8 @@ accounts_store.delete(&Hash)?;
 - 🧠 store.fold(accumulator, lambda) -> accumulator
 - 🔍 store.any(lambda) -> V
 - 🐘 store.memory(size)
+- 📸 snapshots
 
 ## License
+
+MIT

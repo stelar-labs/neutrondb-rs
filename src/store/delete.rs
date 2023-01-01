@@ -7,7 +7,7 @@ use std::path::Path;
 impl<K,V> Store<K,V> {
     pub fn delete(&mut self, key: &K) -> Result<(), Box<dyn Error>>
     where
-    K: std::cmp::PartialEq + std::clone::Clone + Into<Vec<u8>>
+    K: PartialEq + Clone + Into<Vec<u8>>
     {
         match self.graves.iter().find(|x| x == &key) {
             Some(_) => Ok(()),

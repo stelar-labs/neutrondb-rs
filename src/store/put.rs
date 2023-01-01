@@ -9,7 +9,7 @@ use std::path::Path;
 impl<K,V> Store<K,V> {
     pub fn put(&mut self, key: &K, value: &V) -> Result<(), Box<dyn Error>>
     where
-    K: Clone + std::cmp::Ord + TryFrom<Vec<u8>> + Into<Vec<u8>>,
+    K: Clone + Ord + TryFrom<Vec<u8>> + Into<Vec<u8>>,
     V: Clone + TryFrom<Vec<u8>> + Into<Vec<u8>>
     {
         let k_bytes: Vec<u8> = key.clone().into();

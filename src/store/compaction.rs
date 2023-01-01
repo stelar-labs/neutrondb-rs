@@ -11,8 +11,8 @@ impl<K,V> Store<K,V> {
     
     pub fn compaction(&mut self) -> Result<(), Box<dyn Error>>
     where
-    K: std::clone::Clone + std::cmp::PartialEq + std::cmp::Ord + Into<Vec<u8>> + TryFrom<Vec<u8>>,
-    V: std::clone::Clone + Into<Vec<u8>> + TryFrom<Vec<u8>>
+    K: Clone + PartialEq + Ord + Into<Vec<u8>> + TryFrom<Vec<u8>>,
+    V: Clone + Into<Vec<u8>> + TryFrom<Vec<u8>>
     {
 
         for level in 1..=10 {

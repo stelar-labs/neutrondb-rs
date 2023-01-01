@@ -9,10 +9,8 @@ impl<K,V> Store<K,V> {
 
     pub fn get(&self, key: &K) -> Result<V, Box<dyn Error>>
     where 
-    K: std::cmp::PartialEq + std::cmp::Ord + Into<Vec<u8>> + Clone + TryFrom<Vec<u8>>,
-    V: Clone + TryFrom<Vec<u8>>,
-    <K as TryFrom<Vec<u8>>>::Error: std::error::Error,
-    <V as TryFrom<Vec<u8>>>::Error: std::error::Error
+    K: PartialEq + Ord + Into<Vec<u8>> + Clone + TryFrom<Vec<u8>>,
+    V: Clone + TryFrom<Vec<u8>>
     {
             
         match self.graves.iter().find(|&x| x == key) {
