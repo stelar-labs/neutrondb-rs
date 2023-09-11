@@ -1,19 +1,26 @@
 use std::fs::File;
-use std::io::BufRead;
-use std::io::BufReader;
 use std::error::Error;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
+use std::hash::Hash;
 
 use crate::Store;
 
-impl<K,V> Store<K,V> {
+impl<'a, K,V> Store<K,V> {
 
-    pub fn get(&self, key: &K) -> Result<V, Box<dyn Error>>
+    pub fn get(&self, key: &'a K) -> Result<V, Box<dyn Error>>
     where 
-    K: PartialEq + Ord + Into<Vec<u8>> + Clone + TryFrom<Vec<u8>>,
-    V: Clone + TryFrom<Vec<u8>>
+    K: PartialEq + Ord + Into<Vec<u8>> + Clone + TryFrom<Vec<u8>> + 'a + Hash,
+    V: Clone + TryFrom<Vec<u8>, Error = Box<dyn Error>>,
+    &'a K: Into<Vec<u8>>
     {
+
+        let key_bytes: Vec<u8> = key.into();
+
+        let key_hash = fides::hash::blake_3(&key_bytes);
             
-        match self.graves.iter().find(|&x| x == key) {
+        match self.graves.iter().find(|&x| x == &key_hash) {
 
             Some(_) => Err("Not found!")?,
 
@@ -21,11 +28,16 @@ impl<K,V> Store<K,V> {
                 
                 match self.cache.get(&key) {
 
-                    Some(r) => Ok(r.clone()),
+                    Some(r) => {
+
+                        match self.values.get(&r.value_hash) {
+                            Some(value_object) => Ok(value_object.value.clone()),
+                            None => Err("Not found!")?,
+                        }
+                        
+                    },
 
                     None => {
-
-                        let key_bytes: Vec<u8> = key.clone().into();
 
                         let mut res: Option<V> = None;
                         
@@ -39,47 +51,49 @@ impl<K,V> Store<K,V> {
                                         
                                         true => {
 
-                                            let table_path = format!(
-                                                "{}/levels/{}/{}",
-                                                &self.directory,
-                                                table.level,
-                                                table.name
-                                            );
+                                            let table_path = format!("{}/levels/{}/{}", &self.directory, table.level, table.name);
+
+                                            let mut table_file = File::open(&table_path)?;
 
                                             let mut low = 0;
 
-                                            let mut high = table.count as usize;
+                                            let mut high = table.key_count;
 
                                             while low != high {
                                                 
-                                                let mid_idx = (low + high) / 2;
+                                                let mid_pos = table.index_position + (((high - low) / 2) * 80);
 
-                                                let mid_line: String = BufReader::new(
-                                                        File::open(&table_path).unwrap()
-                                                    )
-                                                    .lines()
-                                                    .nth(mid_idx + 2)
-                                                    .unwrap()?;
-
-                                                let spt_mid_line: Vec<&str> = mid_line.split(" ").collect();
-
-                                                let mid_key: K = extract_key(&spt_mid_line)?;
+                                                let mut table_key_hash = [0u8;32];
+                                                table_file.seek(SeekFrom::Start(mid_pos))?;
+                                                table_file.read_exact(&mut table_key_hash)?;
                                                 
-                                                if key == &mid_key {
+                                                if key_hash == table_key_hash {
 
-                                                    let val = extract_value(&spt_mid_line)?;
+                                                    // skip 40 bytes
 
-                                                    res = Some(val);
+                                                    let mut value_position_bytes = [0u8;8];
+                                                    table_file.read_exact(&mut value_position_bytes)?;
+                                                    let value_position = u64::from_be_bytes(value_position_bytes);
+                                                    table_file.seek(SeekFrom::Start(value_position))?;
+                                                    let mut value_size_buffer = [0u8;8];
+                                                    table_file.read_exact(&mut value_size_buffer)?;
+                                                    let value_size = u64::from_be_bytes(value_size_buffer) as usize;
+                                                    let mut value_buffer = vec![0u8; value_size];
+                                                    table_file.read_exact(&mut value_buffer)?;
+                                                    
+                                                    let value = V::try_from(value_buffer)?;
+                                            
+                                                    res = Some(value);
                                                     
                                                     break
 
-                                                } else if key > &mid_key {
+                                                } else if key_hash > table_key_hash {
                                                     
-                                                    low = mid_idx + 1
+                                                    low = mid_pos + 1
 
                                                 } else {
                                                     
-                                                    high = mid_idx - 1
+                                                    high = mid_pos - 1
                                                 }
                                             }
                                         },
@@ -97,35 +111,5 @@ impl<K,V> Store<K,V> {
                 }
             }
         }
-    }
-}
-
-fn extract_key<K>(arg: &[&str]) -> Result<K, Box<dyn Error>>
-where K: TryFrom<Vec<u8>>
-{
-    if arg.len() == 2 {
-        let k_bytes_hex = arg[0];
-        let k_bytes = hex::decode(k_bytes_hex)?;
-        match K::try_from(k_bytes) {
-            Ok(k) => Ok(k),
-            Err(_) => Err("Not Supported!")?
-        }
-    } else {
-        Err("Not Supported!")?
-    }
-}
-
-fn extract_value<V>(arg: &[&str]) -> Result<V, Box<dyn Error>>
-where V: TryFrom<Vec<u8>>
-{
-    if arg.len() == 2 {
-        let v_bytes_hex = arg[1];
-        let v_bytes = hex::decode(v_bytes_hex)?;
-        match V::try_from(v_bytes) {
-            Ok(v) => Ok(v),
-            Err(_) => Err("Not Supported!")?
-        }
-    } else {
-        Err("Not Supported!")?
     }
 }

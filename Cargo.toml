@@ -1,6 +1,6 @@
 [package]
 name = "neutrondb"
-version = "5.0.4"
+version = "6.0.0"
 edition = "2021"
 license = "MIT"
 description = "NeutronDB is a log-structured merge-tree key-value store for any implemented data type."
