@@ -3,17 +3,18 @@ use std::error::Error;
 use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom;
-use std::hash::Hash;
 
 use crate::Store;
 
 impl<'a, K,V> Store<K,V> {
 
     pub fn get(&self, key: &'a K) -> Result<V, Box<dyn Error>>
-    where 
-    K: PartialEq + Ord + Into<Vec<u8>> + Clone + TryFrom<Vec<u8>> + 'a + Hash,
-    V: Clone + TryFrom<Vec<u8>, Error = Box<dyn Error>>,
-    &'a K: Into<Vec<u8>>
+        
+        where 
+            K: Into<Vec<u8>> + Clone + 'a,
+            V: Clone + TryFrom<Vec<u8>, Error = Box<dyn Error>>,
+            &'a K: Into<Vec<u8>>
+    
     {
 
         let key_bytes: Vec<u8> = key.into();
@@ -26,7 +27,7 @@ impl<'a, K,V> Store<K,V> {
 
             None => {
                 
-                match self.cache.get(&key) {
+                match self.cache.get(&key_hash) {
 
                     Some(r) => {
 

@@ -3,20 +3,14 @@ use crate::{Store, Table};
 use std::collections::HashMap;
 use std::error::Error;
 use std::{fs, vec};
-use std::fs::OpenOptions;
-use std::hash::Hash;
+use std::fs::{OpenOptions, File};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::io::{Write, Seek, SeekFrom, Read};
 
 impl<'a,K,V> Store<K,V> {
-    pub fn flush(&mut self) -> Result<(), Box<dyn Error>>
-    where
-    K: Clone + Into<Vec<u8>> + Hash + 'a,
-    V: Clone + Into<Vec<u8>> + 'a,
-    &'a K: Into<Vec<u8>>,
-    &'a V: Into<Vec<u8>>
-    {
+
+    pub fn flush(&mut self) -> Result<(), Box<dyn Error>> {
 
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -27,7 +21,7 @@ impl<'a,K,V> Store<K,V> {
         
         fs::create_dir_all(&level_path)?;
 
-        let table_path_str = format!("{}/{}.neutron", &level_path, &current_time);
+        let table_path_str = format!("{}/{}.bin", &level_path, &current_time);
         
         let table_path = Path::new(&table_path_str);
 
@@ -47,11 +41,11 @@ impl<'a,K,V> Store<K,V> {
 
         let mut value_data_order = Vec::new();
 
-        for (_, cache_object) in &self.cache {
+        for (key_hash, cache_object) in &self.cache {
 
             value_data_offset += cache_object.key_size as u64;
 
-            bloom_filter.insert(&cache_object.key_hash);
+            bloom_filter.insert(key_hash);
 
             value_data_order.push(cache_object.value_hash);
 
@@ -70,7 +64,7 @@ impl<'a,K,V> Store<K,V> {
                 },
             };
 
-            index.push((cache_object.key_hash, key_position, value_position));
+            index.push((*key_hash, key_position, value_position));
 
             key_position += cache_object.key_size as u64;
 
@@ -91,7 +85,7 @@ impl<'a,K,V> Store<K,V> {
             *val_pos += value_data_offset;
         }
 
-        // write version byte 
+        table_file.write_all(&[1u8])?;
 
         table_file.write_all(&key_count.to_be_bytes())?;
 
@@ -103,7 +97,7 @@ impl<'a,K,V> Store<K,V> {
 
         for (_, cache_object) in &self.cache {
             let mut key_bytes = vec![0u8; cache_object.key_size];
-            self.logs_file.seek(SeekFrom::Start(cache_object.log_position))?;
+            self.logs_file.seek(SeekFrom::Start(cache_object.key_log_position))?;
             self.logs_file.read_exact(&mut key_bytes)?;
             table_file.write_all(&key_bytes)?;
         }
@@ -112,7 +106,7 @@ impl<'a,K,V> Store<K,V> {
             match self.values.get(&value_hash) {
                 Some(value_object) => {
                     let mut value_bytes = vec![0u8; value_object.value_size];
-                    self.logs_file.seek(SeekFrom::Start(value_object.log_position))?;
+                    self.logs_file.seek(SeekFrom::Start(value_object.value_log_position))?;
                     self.logs_file.read_exact(&mut value_bytes)?;
                     table_file.write_all(&value_bytes)?;
                 },
@@ -123,7 +117,7 @@ impl<'a,K,V> Store<K,V> {
         let table = Table {
             bloom_filter,
             level: 1_u8,
-            name: format!("{}.neutron", current_time),
+            name: format!("{}", current_time),
             key_count,
             file_size: table_file.metadata()?.len(),
             index_position,
@@ -134,33 +128,20 @@ impl<'a,K,V> Store<K,V> {
 
         self.tables.sort_by(|a, b| b.name.cmp(&a.name));
 
-        let graves_path = format!(
-            "{}/graves",
-            &self.directory
-        );
+        let graves_path_str = format!("{}/graves.bin", &self.directory);
 
-        let graves_location = Path::new(&graves_path);
+        let graves_path = Path::new(&graves_path_str);
 
-        if graves_location.is_file() {
+        if graves_path.is_file() {
 
-            fs::remove_file(graves_location)?;
+            let mut graves_file = File::open(graves_path)?;
 
-            let graves_input = self.graves
-                .iter()
-                .fold(
-                    String::new(),
-                    |mut acc, x| {
+            graves_file.set_len(0)?;
 
-                        let g_bytes: Vec<u8> = x.clone().into();
+            for grave in &self.graves {
+                graves_file.write_all(grave)?;
+            }
 
-                        acc = format!("{}{}\n", acc, hex::encode(g_bytes));
-
-                        acc
-                        
-                    }
-                );
-
-            fs::write(graves_location, graves_input)?;
 
         };
 

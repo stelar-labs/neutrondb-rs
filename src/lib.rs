@@ -1,31 +1,33 @@
  mod store;
-use std::{collections::HashMap, fs::File};
+use std::{collections::{HashMap, BTreeMap, HashSet}, fs::File};
 use fides::BloomFilter;
+use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct Store<K,V> {
-    pub cache: HashMap<K, CacheObject>,
-    pub directory: String,
-    pub graves: Vec<[u8;32]>,
-    pub tables: Vec<Table>,
-    pub logs_file: File,
-    pub values: HashMap<[u8;32], ValueObject<V>>,
-    pub cache_size: u64,
+    directory: String,
+    graves: HashSet<[u8;32]>,
+    tables: Vec<Table>,
+    logs_file: File,
+    values: HashMap<[u8;32], ValueObject<V>>,
+    cache_size: u64,
+    cache_limit: u64,
+    cache: BTreeMap<[u8;32], KeyObject>,
+    phantom: PhantomData<K>,
 }
 
 #[derive(Debug)]
 pub struct ValueObject<V> {
     value: V,
     value_size: usize,
-    log_position: u64,
+    value_log_position: u64,
 }
 
 #[derive(Debug)]
-pub struct CacheObject {
-    key_hash: [u8;32],
+pub struct KeyObject {
     value_hash: [u8;32],
     key_size: usize,
-    log_position: u64,
+    key_log_position: u64,
 }
 
 #[derive(Debug)]

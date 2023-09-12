@@ -1,61 +1,62 @@
-use crate::{Store, CacheObject, ValueObject};
+use crate::{Store, KeyObject, ValueObject};
 use std::error::Error;
-use std::hash::Hash;
 use std::io::Write;
 
 impl<'a,K,V> Store<K,V> {
     
     pub fn put(&mut self, key: &'a K, value: &'a V) -> Result<(), Box<dyn Error>>
-    where
-    K: Clone + Ord + TryFrom<Vec<u8>> + Into<Vec<u8>> + Hash + 'a,
-    V: Clone + TryFrom<Vec<u8>> + Into<Vec<u8>> + 'a,
-    &'a K: Into<Vec<u8>>,
-    &'a V: Into<Vec<u8>>
+        
+        where
+            V: Clone + TryFrom<Vec<u8>, Error = Box<dyn Error>>,
+            &'a K: Into<Vec<u8>>,
+            &'a V: Into<Vec<u8>>
+
     {
 
         let key_bytes: Vec<u8> = key.into();
 
         let value_bytes: Vec<u8> = value.into();
-        
-        let kv_astro = astro_format::encode(&[&key_bytes[..], &value_bytes[..]][..]);
-
-        self.logs_file.write_all(&[0u8])?;
-
-        self.logs_file.write_all(&kv_astro)?;
-
+       
         let key_hash = fides::hash::blake_3(&key_bytes);
 
         let value_hash = fides::hash::blake_3(&value_bytes);
-
-        // write key indicator
-        // write key hash
-        // write key size 
         
-        let cache_object = CacheObject {
-            key_hash,
+        self.logs_file.write_all(&[1u8])?;
+
+        self.logs_file.write_all(&key_hash)?;
+
+        let key_size_u64 = key_bytes.len() as u64;
+        
+        self.logs_file.write_all(&key_size_u64.to_be_bytes())?;
+                
+        let cache_object = KeyObject {
             value_hash,
             key_size: key_bytes.len(),
-            log_position: self.logs_file.metadata()?.len(),
+            key_log_position: self.logs_file.metadata()?.len(),
         };
 
-        self.cache.insert(key.clone(), cache_object);
+        self.cache.insert(key_hash, cache_object);
 
         if !self.values.contains_key(&value_hash) {
 
-            // write value indicator
-            // write value hash
-            // write value size
+            self.logs_file.write_all(&[2u8])?;
+
+            self.logs_file.write_all(&value_hash)?;
 
             let value_object = ValueObject {
                 value: value.clone(),
                 value_size: value_bytes.len(),
-                log_position: self.logs_file.metadata()?.len()
+                value_log_position: self.logs_file.metadata()?.len()
             };
+
+            let value_size_u64 = value_bytes.len() as u64;
+
+            self.logs_file.write_all(&value_size_u64.to_be_bytes())?;
 
             self.values.insert(value_hash, value_object);
         }
 
-        if self.logs_file.metadata()?.len() > self.cache_size {
+        if self.cache_size > self.cache_limit {
 
             self.flush()?;
 
@@ -67,7 +68,7 @@ impl<'a,K,V> Store<K,V> {
 
         }
 
-        self.graves.retain(|&x| x != key_hash);
+        self.graves.remove(&key_hash);
 
         Ok(())
 

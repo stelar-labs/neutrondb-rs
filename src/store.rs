@@ -1,3 +1,4 @@
+pub mod cache_limit;
 pub mod compaction;
 pub mod delete;
 pub mod flush;

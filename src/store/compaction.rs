@@ -9,11 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 impl<K,V> Store<K,V> {
     
-    pub fn compaction(&mut self) -> Result<(), Box<dyn Error>>
-    where
-    K: Clone + PartialEq + Ord + Into<Vec<u8>> + TryFrom<Vec<u8>>,
-    V: Clone + Into<Vec<u8>> + TryFrom<Vec<u8>>
-    {
+    pub fn compaction(&mut self) -> Result<(), Box<dyn Error>> {
 
         for level in 1..=10 {
 
@@ -41,7 +37,7 @@ impl<K,V> Store<K,V> {
 
                     let level_path = format!("{}/levels/{}", self.directory, table.level);
 
-                    let table_path_str = format!("{}/{}.neutron", &level_path, &table.name);
+                    let table_path_str = format!("{}/{}.bin", &level_path, &table.name);
         
                     let table_path = Path::new(&table_path_str);
 
@@ -168,7 +164,7 @@ impl<K,V> Store<K,V> {
 
                 value_data_offset += key_data_position;
 
-                // write version byte 
+                level_file.write_all(&[1u8])?;
                 
                 level_file.write_all(&key_count.to_be_bytes())?;
                 level_file.write_all(&index_position.to_be_bytes())?;
@@ -225,9 +221,7 @@ impl<K,V> Store<K,V> {
 
                 self.tables.push(table);
 
-                self.tables.sort_by_key(|k| k.name.clone());
-
-                self.tables.reverse()
+                self.tables.sort_by(|a, b| b.name.cmp(&a.name));
 
             }
 

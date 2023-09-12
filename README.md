@@ -6,52 +6,54 @@ NeutronDB is a log-structured merge-tree key-value store for any implemented dat
 
 - Roy R. O. Okello: [Email](mailto:royokello@protonmail.com) & [GitHub](https://github.com/royokello)
 
+## About
+
+### Neutron Table Binary Format
+
+- Version (1 Byte)
+- Key Count (8 Bytes)
+- Index Position (8 Bytes)
+- Key Data Position (8 Bytes)
+- Bloom Filter (Dynamic Size)
+- Index Data (Dynamic Size)
+- Key Data (Dynamic Size)
+- Value Data (Dynamic Size)
+
 ## Features
 
 ## Usage
 
-### Module.rs
+### Installation
 
-```text
-use neutrondb::Store;
-```
+- From [Crates](https://crates.io/) by running `cargo add neutrondb`
+- From Crates by adding `neutrondb = "6.0.0"` to `Cargo.toml` under `[dependencies]`
 
 ### New
-`new: directory -> Store`
 
-```text
-let mut accounts_store: Store<Hash, Account> = Store::new("./ndb")?;
-```
+- `new: directory_path -> store/error`
+- Example: `let mut accounts_store: Store<Hash, Account> = Store::new("./ndb")?;`
+
 ### Put
-`put: &key, &value`
 
-```text
-accounts_store.put(&Hash, &Account)?;
-```
+- `put: &key, &value -> ()/error`
+- Example: `accounts_store.put(&Hash, &Account)?;`
 
 ### Get
-`get: &key -> value`
 
-```text
+- `get: &key -> value/error`
+- Example: `let account = accounts_store.get(&Hash)?;`
 
-let account = accounts_store.get(&Hash)?;
-
-```
 ### Delete
-`delete: &key`
 
-```text
-accounts_store.delete(&Hash)?;
-```
+- `delete: &key -> ()/error`
+- Example: `accounts_store.delete(&Hash)?;`
 
-### Cache Size
+### Cache Limit
 
-- Increase cache size
-- Minimum cache size is 1MB / 1_000_000
-
-```
-accounts_store.cache_size(1_000_000_000)
-```
+- `cache_limit: u64`
+- sets cache limit
+- default & minimum cache limit is 1MB
+- Example: `accounts_store.cache_limit(1_000_000_000)`
 
 ## Future
 
@@ -62,6 +64,11 @@ accounts_store.cache_size(1_000_000_000)
 - 🧠 store.fold(accumulator, lambda) -> accumulator
 - 🔍 store.any(lambda) -> V
 - 📸 snapshots
+
+## Scaling
+
+- supports 64bit data positions
+- Use ZFS
 
 ## License
 

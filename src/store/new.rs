@@ -1,37 +1,34 @@
 use fides::BloomFilter;
-use crate::{Store, Table, CacheObject, ValueObject};
-use std::collections::HashMap;
+use crate::{Store, Table, KeyObject, ValueObject};
+use std::collections::{HashMap, BTreeMap, HashSet};
 use std::error::Error;
 use std::fs::File;
-use std::fs;
+use std::{fs, mem};
 use std::fs::OpenOptions;
-use std::hash::Hash;
 use std::io::{self, Seek, SeekFrom};
 use std::io::Read;
 use std::path::Path;
 use std::str;
 
-impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V>
-    where
-    K: PartialEq + Ord + TryFrom<Vec<u8>> + Into<Vec<u8>> + Clone + Hash,
-    V: Clone + Into<Vec<u8>> + TryFrom<Vec<u8>>,
-    <K as TryFrom<Vec<u8>>>::Error: std::error::Error + 'static,
-    <V as TryFrom<Vec<u8>>>::Error: std::error::Error + 'static,
+impl<K,V> Store<K,V>
+        
+        where
+            V: Into<Vec<u8>> + TryFrom<Vec<u8>>,
+            <V as TryFrom<Vec<u8>>>::Error: std::error::Error + 'static,
+    
     {
 
     pub fn new(directory: &str) -> Result<Store<K,V>, Box<dyn Error>> {
         
         if !Path::new(directory).is_dir() {
-
             fs::create_dir_all(directory)?;
-
         }
 
-        let graves_location = format!("{}/graves", &directory);
+        let graves_location = format!("{}/graves.bin", &directory);
 
         let graves_path = Path::new(&graves_location);
 
-        let mut graves: Vec<[u8; 32]> = Vec::new();
+        let mut graves: HashSet<[u8; 32]> = HashSet::new();
 
         if graves_path.is_file() {
 
@@ -43,7 +40,7 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V>
 
                 match graves_file.read_exact(&mut graves_buffer) {
 
-                    Ok(_) => graves.push(graves_buffer),
+                    Ok(_) => {graves.insert(graves_buffer);},
 
                     Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof => break,
 
@@ -71,6 +68,8 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V>
 
                 let level_name = level.file_name().into_string().unwrap();
 
+                // remove .bin in level name 
+
                 let level = u8::from_str_radix(&level_name, 10)?;
 
                 if level_path.is_dir() {
@@ -90,6 +89,8 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V>
                         if table_path.is_file() {
 
                             let mut table_file = File::open(&table_path)?;
+
+                            // skip version byte 
 
                             let mut key_count_bytes = [0; 8];
                             table_file.read_exact(&mut key_count_bytes)?;
@@ -123,17 +124,17 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V>
                         }
                     }
 
-                    tables.sort_by_key(|k| k.name.clone());
-
-                    tables.reverse()
+                    tables.sort_by(|a, b| b.name.cmp(&a.name));
 
                 }
             }
         }
 
-        let mut cache: HashMap<K, CacheObject> = HashMap::new();
+        let mut cache: BTreeMap<[u8;32], KeyObject> = BTreeMap::new();
 
         let mut values: HashMap<[u8;32], ValueObject<V>> = HashMap::new();
+
+        let mut cache_size = 0;
         
         let logs_location = format!("{}/logs.bin", &directory);
         let logs_path = Path::new(&logs_location);
@@ -153,21 +154,22 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V>
 
                             let mut key_size_bytes = [0u8;8];
                             logs_file.read_exact(&mut key_size_bytes)?;
-                            let log_position = logs_file.seek(SeekFrom::Current(0))?;
-                            let key_size = u64::from_be_bytes(key_size_bytes) as usize;
-                            let mut key_buffer = vec![0u8; key_size];
-                            logs_file.read_exact(&mut key_buffer)?;
-
-                            let key = K::try_from(key_buffer)?;
+                            let key_log_position = logs_file.seek(SeekFrom::Current(0))?;
+                            let key_size_u64 = u64::from_be_bytes(key_size_bytes);
+                            let key_size = key_size_u64 as usize;
                             
-                            let cache_object = CacheObject {
-                                key_hash,
+                            // let mut key_buffer = vec![0u8; key_size];
+                            // logs_file.read_exact(&mut key_buffer)?;
+
+                            // let key = K::try_from(key_buffer)?;
+                            
+                            let cache_object = KeyObject {
                                 value_hash,
                                 key_size,
-                                log_position,
+                                key_log_position,
                             };
 
-                            cache.insert(key, cache_object);
+                            cache.insert(key_hash, cache_object);
 
                         },
                         [2] => {
@@ -176,17 +178,19 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V>
 
                             let mut value_size_bytes = [0u8;8];
                             logs_file.read_exact(&mut value_size_bytes)?;
-                            let log_position = logs_file.seek(SeekFrom::Current(0))?;
+                            let value_log_position = logs_file.seek(SeekFrom::Current(0))?;
                             let value_size = u64::from_be_bytes(value_size_bytes) as usize;
                             let mut value_buffer = vec![0u8;value_size];
                             logs_file.read_exact(&mut value_buffer)?;
 
                             let value = V::try_from(value_buffer)?;
 
+                            cache_size += mem::size_of_val(&value);
+
                             let value_object = ValueObject {
                                 value,
                                 value_size,
-                                log_position,
+                                value_log_position,
                             };
 
                             values.insert(value_hash, value_object);
@@ -195,7 +199,7 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V>
                         [3] => {
                             let mut grave_hash = [0u8;32];
                             logs_file.read_exact(&mut grave_hash)?;
-                            graves.push(grave_hash)
+                            graves.insert(grave_hash);
                         },
                         _ => break
                     }
@@ -210,31 +214,17 @@ impl<K: std::fmt::Debug,V: std::fmt::Debug> Store<K,V>
         }
 
 
-        let mut store = Store {
+        let store = Store {
             cache,
             directory: directory.to_string(),
             graves,
             tables,
             logs_file,
             values,
-            cache_size: 1000000,
+            cache_size: cache_size.try_into()?,
+            cache_limit: 1_000_000,
+            phantom: std::marker::PhantomData,
         };
-
-        // if logs_path.is_file() {
-
-        //     if logs_path.metadata()?.len() > store.cache_size {
-
-        //         store.flush()?;
-            
-        //         fs::remove_file(logs_path)?;
-
-        //         store.cache.clear();
-
-        //         store.compaction()?;
-
-        //     }
-
-        // }
 
         Ok(store)
 
