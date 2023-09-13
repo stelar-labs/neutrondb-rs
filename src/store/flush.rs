@@ -1,5 +1,5 @@
 use fides::BloomFilter;
-use crate::{Store, Table};
+use crate::{Store, Table, TABLE_HEADER_SIZE, KEY_INDEX_SIZE};
 use std::collections::HashMap;
 use std::error::Error;
 use std::{fs, vec};
@@ -33,7 +33,7 @@ impl<'a,K,V> Store<K,V> {
 
         let mut value_position: u64 = 0;
 
-        let mut index: Vec<([u8;32], u64, u64)> = Vec::new();
+        let mut index: Vec<([u8;32], u64, u64, [u8;32], u64)> = Vec::new();
 
         let mut value_positions: HashMap<[u8;32],u64> = HashMap::new();
 
@@ -41,32 +41,31 @@ impl<'a,K,V> Store<K,V> {
 
         let mut value_data_order = Vec::new();
 
-        for (key_hash, cache_object) in &self.cache {
+        for (key_hash, key_object) in &self.cache {
 
-            value_data_offset += cache_object.key_size as u64;
+            value_data_offset += key_object.key_size as u64;
 
             bloom_filter.insert(key_hash);
 
-            value_data_order.push(cache_object.value_hash);
-
-            let value_position = match value_positions.get(&cache_object.value_hash) {
+            let value_position = match value_positions.get(&key_object.value_hash) {
                 Some(r) => *r,
                 None => {
-                    match self.values.get(&cache_object.value_hash) {
+                    match self.values.get(&key_object.value_hash) {
                         Some(value_object) => {
+                            value_data_order.push(key_object.value_hash);
                             let current_val_pos = value_position;
-                            value_positions.insert(cache_object.value_hash, value_position);
+                            value_positions.insert(key_object.value_hash, value_position);
                             value_position += value_object.value_size as u64;
                             current_val_pos
                         },
-                        None => value_position,
+                        None => continue,
                     }
                 },
             };
 
-            index.push((*key_hash, key_position, value_position));
+            index.push((*key_hash, key_position, key_object.key_size.try_into()?, key_object.value_hash, value_position));
 
-            key_position += cache_object.key_size as u64;
+            key_position += 8 + key_object.key_size as u64;
 
         }
 
@@ -74,26 +73,27 @@ impl<'a,K,V> Store<K,V> {
 
         let key_count = self.cache.len() as u64;
 
-        let index_position = 1 + 24 + bloom_filter_bytes.len() as u64;
+        let index_position = TABLE_HEADER_SIZE + bloom_filter_bytes.len() as u64;
 
-        let key_data_position = index_position + (key_count * (32 + 32 + 8 + 8));
+        let key_data_position = index_position + (key_count * KEY_INDEX_SIZE);
 
         value_data_offset += key_data_position;
         
-        for (_, key_pos, val_pos) in &mut index {
-            *key_pos += key_data_position;
-            *val_pos += value_data_offset;
-        }
-
         table_file.write_all(&[1u8])?;
-
         table_file.write_all(&key_count.to_be_bytes())?;
-
         table_file.write_all(&index_position.to_be_bytes())?;
-
         table_file.write_all(&key_data_position.to_be_bytes())?;
-
         table_file.write_all(&bloom_filter_bytes)?;
+
+        for  (i_key_hash, mut i_key_position, i_key_size, i_value_hash, mut i_value_position) in &mut index {
+            table_file.write_all(i_key_hash)?;
+            i_key_position += key_data_position;
+            table_file.write_all(&i_key_position.to_be_bytes())?;
+            table_file.write_all(&i_key_size.to_be_bytes())?;
+            table_file.write_all(i_value_hash)?;
+            i_value_position += value_data_offset;
+            table_file.write_all(&i_value_position.to_be_bytes())?; 
+        }
 
         for (_, cache_object) in &self.cache {
             let mut key_bytes = vec![0u8; cache_object.key_size];
@@ -108,6 +108,8 @@ impl<'a,K,V> Store<K,V> {
                     let mut value_bytes = vec![0u8; value_object.value_size];
                     self.logs_file.seek(SeekFrom::Start(value_object.value_log_position))?;
                     self.logs_file.read_exact(&mut value_bytes)?;
+                    let value_size_u64: u64 = value_object.value_size.try_into()?;
+                    table_file.write_all(&value_size_u64.to_be_bytes())?;
                     table_file.write_all(&value_bytes)?;
                 },
                 None => (),

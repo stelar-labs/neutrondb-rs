@@ -14,23 +14,17 @@ impl<'a,K,V> Store<K,V> {
 
         let key_hash = fides::hash::blake_3(&key_bytes);
 
-        match self.graves.iter().find(|&x| x == &key_hash) {
+        if !self.graves.contains(&key_hash) {
+            
+            self.logs_file.write_all(&[3u8])?;
 
-            Some(_) => Ok(()),
+            self.logs_file.write_all(&key_hash)?;
 
-            None => {
-
-                self.logs_file.write_all(&[3u8])?;
-
-                self.logs_file.write_all(&key_hash)?;
-
-                self.graves.insert(key_hash);
-
-                Ok(())
-
-            }
+            self.graves.insert(key_hash);
 
         }
+
+        Ok(())
 
     }
 

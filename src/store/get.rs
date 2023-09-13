@@ -10,8 +10,7 @@ impl<'a, K,V> Store<K,V> {
 
     pub fn get(&self, key: &'a K) -> Result<V, Box<dyn Error>>
         
-        where 
-            K: Into<Vec<u8>> + Clone + 'a,
+        where
             V: Clone + TryFrom<Vec<u8>, Error = Box<dyn Error>>,
             &'a K: Into<Vec<u8>>
     
@@ -52,7 +51,7 @@ impl<'a, K,V> Store<K,V> {
                                         
                                         true => {
 
-                                            let table_path = format!("{}/levels/{}/{}", &self.directory, table.level, table.name);
+                                            let table_path = format!("{}/levels/{}/{}.bin", &self.directory, table.level, table.name);
 
                                             let mut table_file = File::open(&table_path)?;
 
@@ -70,15 +69,19 @@ impl<'a, K,V> Store<K,V> {
                                                 
                                                 if key_hash == table_key_hash {
 
-                                                    // skip 40 bytes
+                                                    table_file.seek(SeekFrom::Current(48))?;
 
                                                     let mut value_position_bytes = [0u8;8];
                                                     table_file.read_exact(&mut value_position_bytes)?;
+
                                                     let value_position = u64::from_be_bytes(value_position_bytes);
+
                                                     table_file.seek(SeekFrom::Start(value_position))?;
+
                                                     let mut value_size_buffer = [0u8;8];
                                                     table_file.read_exact(&mut value_size_buffer)?;
                                                     let value_size = u64::from_be_bytes(value_size_buffer) as usize;
+
                                                     let mut value_buffer = vec![0u8; value_size];
                                                     table_file.read_exact(&mut value_buffer)?;
                                                     

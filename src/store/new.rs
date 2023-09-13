@@ -1,5 +1,5 @@
 use fides::BloomFilter;
-use crate::{Store, Table, KeyObject, ValueObject};
+use crate::{Store, Table, KeyObject, ValueObject, TABLE_HEADER_SIZE};
 use std::collections::{HashMap, BTreeMap, HashSet};
 use std::error::Error;
 use std::fs::File;
@@ -66,9 +66,9 @@ impl<K,V> Store<K,V>
                 
                 let level_path = level.path();
 
-                let level_name = level.file_name().into_string().unwrap();
+                let mut level_name = level.file_name().into_string().unwrap();
 
-                // remove .bin in level name 
+                level_name = level_name.trim_end_matches(".bin").to_string();
 
                 let level = u8::from_str_radix(&level_name, 10)?;
 
@@ -90,7 +90,7 @@ impl<K,V> Store<K,V>
 
                             let mut table_file = File::open(&table_path)?;
 
-                            // skip version byte 
+                            table_file.seek(SeekFrom::Start(1))?;
 
                             let mut key_count_bytes = [0; 8];
                             table_file.read_exact(&mut key_count_bytes)?;
@@ -104,8 +104,8 @@ impl<K,V> Store<K,V>
                             table_file.read_exact(&mut key_data_position_bytes)?;
                             let key_data_position = u64::from_be_bytes(key_data_position_bytes);
 
-                            let bloom_filter_size = index_position as usize - (8 * 3);
-                            let mut bloom_filter_bytes = vec![0; bloom_filter_size];
+                            let bloom_filter_size = index_position - TABLE_HEADER_SIZE;
+                            let mut bloom_filter_bytes = vec![0; bloom_filter_size.try_into()?];
                             table_file.read_exact(&mut bloom_filter_bytes)?;
                             let bloom_filter = BloomFilter::try_from(&bloom_filter_bytes[..])?;
                             

@@ -26,14 +26,16 @@ impl<'a,K,V> Store<K,V> {
         self.logs_file.write_all(&key_hash)?;
 
         let key_size_u64 = key_bytes.len() as u64;
-        
+
         self.logs_file.write_all(&key_size_u64.to_be_bytes())?;
-                
+                    
         let cache_object = KeyObject {
             value_hash,
             key_size: key_bytes.len(),
             key_log_position: self.logs_file.metadata()?.len(),
         };
+
+        self.logs_file.write_all(&key_bytes)?;
 
         self.cache.insert(key_hash, cache_object);
 
@@ -45,13 +47,15 @@ impl<'a,K,V> Store<K,V> {
 
             let value_object = ValueObject {
                 value: value.clone(),
-                value_size: value_bytes.len(),
+                value_size: 8 + value_bytes.len(),
                 value_log_position: self.logs_file.metadata()?.len()
             };
 
             let value_size_u64 = value_bytes.len() as u64;
 
             self.logs_file.write_all(&value_size_u64.to_be_bytes())?;
+
+            self.logs_file.write_all(&value_bytes)?;
 
             self.values.insert(value_hash, value_object);
         }

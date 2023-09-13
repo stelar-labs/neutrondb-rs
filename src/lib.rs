@@ -3,6 +3,9 @@ use std::{collections::{HashMap, BTreeMap, HashSet}, fs::File};
 use fides::BloomFilter;
 use std::marker::PhantomData;
 
+const TABLE_HEADER_SIZE: u64 = 25;
+const KEY_INDEX_SIZE: u64 = 88;
+
 #[derive(Debug)]
 pub struct Store<K,V> {
     directory: String,

@@ -58,11 +58,12 @@ NeutronDB is a log-structured merge-tree key-value store for any implemented dat
 ## Future
 
 - 🚀 batching requests for performance
-- 📥 store.put_many(&[(K,V)])
-- 📤 store.get_many(&[K]) -> Vec<(K,V)>
-- 🦾 store.iter(lambda) -> Vec<_>
-- 🧠 store.fold(accumulator, lambda) -> accumulator
-- 🔍 store.any(lambda) -> V
+- 📥 store.puts(&[(K,V)])
+- 📤 store.gets(&[K]) -> BTreeMap<K,V>
+- 🗺️ store.map: (Fn: (K,V) -> T) -> Vec<T>
+- 🧠 store.fold: accumulator, Fn: (K,V) -> acc -> acc
+- 🔍 store.any: Fn: (K,V) -> bool -> V
+- 🗄 store.all: Fn: (K,V) -> bool -> BTreeMap<K,V>
 - 📸 snapshots
 
 ## Scaling
