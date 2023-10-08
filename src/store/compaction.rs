@@ -1,6 +1,6 @@
 use fides::BloomFilter;
 use crate::{Table, Store, KEY_INDEX_SIZE, TABLE_HEADER_SIZE};
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{HashMap, BTreeMap, HashSet};
 use std::error::Error;
 use std::fs::{self, File, OpenOptions};
 use std::io::{SeekFrom, Seek, Read, Write};
@@ -11,26 +11,42 @@ impl<K,V> Store<K,V> {
     
     pub fn compaction(&mut self) -> Result<(), Box<dyn Error>> {
 
-        for level in 1..=10 {
+        let mut unique_levels = HashSet::new();
+
+        for table in &self.tables {
+            unique_levels.insert(table.level);
+        }
+
+        for level in unique_levels {
 
             let tables: Vec<&Table> = self.tables.iter().filter(|x| x.level == level).collect();
 
             let level_size = tables.iter().fold(0, |acc, x| acc + x.file_size);
 
-            if level_size > (10_u64.pow(level as u32) * 1000000) {
+            if level_size > (10_u64.pow(level as u32) * 1_000_000) {
 
-                let mut level_key_position = 0;
+                let mut compaction_value_position = 0;
 
-                let mut level_value_position = 0;
+                let mut compaction_index: BTreeMap<
+                    [u8;32], //key hash
+                    (
+                        u64, // key postion
+                        u64, // key size
+                        u64, // value position
+                    )
+                > =  BTreeMap::new();
 
-                // level index -> key_hash: table_index, table_position, key_size,
-                //                          value_hash, value_position
-                let mut level_index:  BTreeMap<[u8;32], (u64, u64, [u8;32], u64)> = BTreeMap::new();
+                let mut compaction_key_locations: Vec<(
+                    usize, // table index
+                    u64, // key position
+                    usize, // key size
+                )> = Vec::new();
 
-                // file index, file position, key size
-                let mut level_key_data_locations: Vec<(usize, u64, u64)> = Vec::new();
-
-                let mut level_value_data_locations: Vec<(usize, u64, u64)> = Vec::new();
+                let mut compaction_value_locations: Vec<(
+                    usize, // table index,
+                    u64, // value position
+                    usize, // value size
+                )> = Vec::new();
 
                 let mut table_files: Vec<File> = Vec::new();
 
@@ -42,7 +58,11 @@ impl<K,V> Store<K,V> {
         
                     let table_path = Path::new(&table_path_str);
 
-                    let table_file = OpenOptions::new().append(true).create(true).open(table_path)?;
+                    let table_file = OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .create(true)
+                        .open(table_path)?;
 
                     table_files.push(table_file)
 
@@ -50,30 +70,40 @@ impl<K,V> Store<K,V> {
 
                 let mut level_value_positions: HashMap<[u8;32], u64> = HashMap::new();
                 
-                let mut value_data_offset = 0;
+                let mut keys_size: u64 = 0;
 
                 for (i, table) in tables.iter().enumerate() {
 
                     match table_files.get_mut(i) {
+
                         Some(table_file) => {
 
                             table_file.seek(SeekFrom::Start(table.index_position))?;
 
-                            while table_file.seek(SeekFrom::Current(0))? < table.key_data_position {
+                            while table_file.seek(SeekFrom::Current(0))? < table.keys_position {
                                 
                                 let mut key_hash = [0u8;32];
                                 table_file.read_exact(&mut key_hash)?;
                                 
-                                if !level_index.contains_key(&key_hash) {
+                                if !compaction_index.contains_key(&key_hash) {
 
                                     let mut key_position_bytes = [0u8;8];
                                     table_file.read_exact(&mut key_position_bytes)?;
-                                    let key_position = u64::from_be_bytes(key_position_bytes);
+                                    let key_position = u64::from_le_bytes(key_position_bytes);
+
                                     let mut key_size_bytes = [0u8;8];
                                     table_file.read_exact(&mut key_size_bytes)?;
-                                    let key_size = u64::from_be_bytes(key_size_bytes);
 
-                                    value_data_offset += key_size;
+                                    let key_size = u64::from_le_bytes(key_size_bytes);
+
+                                    let mut value_position_bytes = [0u8;8];
+                                    table_file.read_exact(&mut value_position_bytes)?;
+
+                                    let value_position = u64::from_le_bytes(value_position_bytes);
+
+                                    let current_table_position = table_file.seek(SeekFrom::Current(0))?;
+
+                                    table_file.seek(SeekFrom::Start(value_position))?;
 
                                     let mut value_hash = [0u8;32];
                                     table_file.read_exact(&mut value_hash)?;
@@ -84,25 +114,24 @@ impl<K,V> Store<K,V> {
                                         
                                         None => {
 
-                                            let mut value_position_bytes = [0u8;8];
-                                            table_file.read_exact(&mut value_position_bytes)?;
-                                            let value_position = u64::from_be_bytes(value_position_bytes);
+                                            let mut value_size_buffer = [0u8;8];
+                                            table_file.read_exact(&mut value_size_buffer)?;
 
-                                            let current_table_position = table_file.seek(SeekFrom::Current(0))?;
-
-                                            table_file.seek(SeekFrom::Start(value_position))?;
-
-                                            let mut value_size_bytes = [0u8;8];
-                                            table_file.read_exact(&mut value_size_bytes)?;
-                                            let value_size = u64::from_be_bytes(value_size_bytes);
+                                            let value_size = u64::from_le_bytes(value_size_buffer);
 
                                             table_file.seek(SeekFrom::Start(current_table_position))?;
+
+                                            let values_element_size = 32 + 8 + value_size;
                                             
-                                            level_value_data_locations.push((i, value_position, value_size));
+                                            compaction_value_locations.push((
+                                                i,
+                                                value_position,
+                                                values_element_size.try_into()?
+                                            ));
 
-                                            let current_value_position = level_value_position;
+                                            let current_value_position = compaction_value_position;
 
-                                            level_value_position += value_size;
+                                            compaction_value_position += values_element_size;
 
                                             level_value_positions.insert(value_hash, current_value_position);
 
@@ -112,15 +141,18 @@ impl<K,V> Store<K,V> {
 
                                     };
 
-                                    level_key_data_locations.push((i, key_position, key_size));
+                                    compaction_key_locations.push((
+                                        i,
+                                        key_position,
+                                        key_size as usize
+                                    ));
 
-                                    level_index.insert(
+                                    compaction_index.insert(
                                         key_hash,
-                                        (level_key_position, key_size, value_hash, current_value_position)
+                                        (keys_size, key_size, current_value_position)
                                     );
 
-                                    level_key_position += key_size;
-
+                                    keys_size += key_size;
 
                                 }
 
@@ -140,61 +172,75 @@ impl<K,V> Store<K,V> {
 
                 let compacted_path = Path::new(&compacted_path_str);
 
-                let mut level_file = OpenOptions::new().append(true).create(true).open(compacted_path)?;   
-            
-                let mut bloom_filter = BloomFilter::new(level_index.len());
+                let mut compacted_file = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .open(compacted_path)?;
 
-                for (key_hash, _) in &level_index {
+                let mut bloom_filter = BloomFilter::new(compaction_index.len());
+
+                for (key_hash, _) in &compaction_index {
                     bloom_filter.insert(key_hash);
                 }
 
                 let bloom_filter_bytes: Vec<u8> = (&bloom_filter).into();
 
-                let key_count: u64 = level_index.len() as u64;
+                let key_count: u64 = compaction_index.len() as u64;
 
                 let index_position = TABLE_HEADER_SIZE + bloom_filter_bytes.len() as u64;
 
-                let key_data_position = index_position + (key_count * KEY_INDEX_SIZE);
+                let keys_position = index_position + (key_count * KEY_INDEX_SIZE);
 
-                value_data_offset += key_data_position;
+                let values_position = keys_position + keys_size;
 
-                level_file.write_all(&[1u8])?;
+                compacted_file.write_all(&[1u8])?;
                 
-                level_file.write_all(&key_count.to_be_bytes())?;
-                level_file.write_all(&index_position.to_be_bytes())?;
-                level_file.write_all(&key_data_position.to_be_bytes())?;
-                level_file.write_all(&bloom_filter_bytes)?;
+                compacted_file.write_all(&key_count.to_le_bytes())?;
+                compacted_file.write_all(&index_position.to_le_bytes())?;
+                compacted_file.write_all(&keys_position.to_le_bytes())?;
+                compacted_file.write_all(&bloom_filter_bytes)?;
 
-                for (key_hash, (mut key_location, key_size, value_hash, mut value_position)) in level_index {
-                    level_file.write_all(&key_hash)?;
-                    key_location += key_data_position;
-                    level_file.write_all(&key_location.to_be_bytes())?;
-                    level_file.write_all(&key_size.to_be_bytes())?;
-                    level_file.write_all(&value_hash)?;
-                    value_position += value_data_offset;
-                    level_file.write_all(&value_position.to_be_bytes())?;
+                for (key_hash, (key_location, key_size, value_position)) in compaction_index {
+                    
+                    compacted_file.write_all(&key_hash)?;
+
+                    compacted_file.write_all(&(keys_position + key_location).to_le_bytes())?;
+
+                    compacted_file.write_all(&key_size.to_le_bytes())?;
+
+                    compacted_file.write_all(&(values_position + value_position).to_le_bytes())?;
+
                 }
 
-                for (table_file_index, key_data_position, key_data_size) in level_key_data_locations {
-                    table_files[table_file_index].seek(SeekFrom::Start(key_data_position))?;
-                    let mut key_buffer = vec![0u8; key_data_size.try_into()?];
+                for (table_file_index, key_position, key_size) in compaction_key_locations {
+
+                    table_files[table_file_index].seek(SeekFrom::Start(key_position))?;
+
+                    let mut key_buffer = vec![0u8; key_size.try_into()?];
+
                     table_files[table_file_index].read_exact(&mut key_buffer)?;
-                    level_file.write_all(&(key_data_size as u64).to_be_bytes())?;
-                    level_file.write_all(&key_buffer)?;
+
+                    compacted_file.write_all(&key_buffer)?;
+
                 }
 
-                for (table_file_index, value_data_position, value_data_size) in level_value_data_locations {
-                    table_files[table_file_index].seek(SeekFrom::Start(value_data_position))?;
-                    let mut value_buffer = vec![0u8; value_data_size.try_into()?];
+                for (table_file_index, value_position, value_size) in compaction_value_locations {
+                    
+                    table_files[table_file_index].seek(SeekFrom::Start(value_position))?;
+                    
+                    let mut value_buffer = vec![0u8; value_size];
+
                     table_files[table_file_index].read_exact(&mut value_buffer)?;
-                    level_file.write_all(&(value_data_size as u64).to_be_bytes())?;
-                    level_file.write_all(&value_buffer)?;
+
+                    compacted_file.write_all(&value_buffer)?;
+
                 }
 
                 for table in tables {
 
                     let table_path = format!(
-                        "{}/levels/{}/{}",
+                        "{}/levels/{}/{}.bin",
                         &self.directory,
                         &table.level,
                         &table.name
@@ -211,9 +257,9 @@ impl<K,V> Store<K,V> {
                     level: level + 1,
                     name: format!("{}", current_time),
                     key_count,
-                    file_size: level_file.metadata()?.len(),
+                    file_size: compacted_file.metadata()?.len(),
                     index_position,
-                    key_data_position,
+                    keys_position,
                 };
 
                 self.tables.push(table);

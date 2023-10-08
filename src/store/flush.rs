@@ -3,7 +3,7 @@ use crate::{Store, Table, TABLE_HEADER_SIZE, KEY_INDEX_SIZE};
 use std::collections::HashMap;
 use std::error::Error;
 use std::{fs, vec};
-use std::fs::{OpenOptions, File};
+use std::fs::OpenOptions;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::io::{Write, Seek, SeekFrom, Read};
@@ -21,29 +21,29 @@ impl<'a,K,V> Store<K,V> {
         
         fs::create_dir_all(&level_path)?;
 
-        let table_path_str = format!("{}/{}.bin", &level_path, &current_time);
+        let flush_path_str = format!("{}/{}.bin", &level_path, &current_time);
         
-        let table_path = Path::new(&table_path_str);
+        let flush_path = Path::new(&flush_path_str);
 
-        let mut table_file = OpenOptions::new().append(true).create(true).open(table_path)?;
+        let mut flush_file = OpenOptions::new().append(true).create(true).open(flush_path)?;
         
-        let mut bloom_filter = BloomFilter::new(self.cache.len());
+        let mut bloom_filter = BloomFilter::new(self.keys.len());
 
         let mut key_position: u64 = 0;
 
         let mut value_position: u64 = 0;
 
-        let mut index: Vec<([u8;32], u64, u64, [u8;32], u64)> = Vec::new();
+        let mut index: Vec<([u8;32], u64, u64, u64)> = Vec::new();
 
         let mut value_positions: HashMap<[u8;32],u64> = HashMap::new();
 
-        let mut value_data_offset = 0;
+        let mut keys_size = 0;
 
         let mut value_data_order = Vec::new();
 
-        for (key_hash, key_object) in &self.cache {
+        for (key_hash, key_object) in &self.keys {
 
-            value_data_offset += key_object.key_size as u64;
+            keys_size += key_object.key_size as u64;
 
             bloom_filter.insert(key_hash);
 
@@ -63,7 +63,9 @@ impl<'a,K,V> Store<K,V> {
                 },
             };
 
-            index.push((*key_hash, key_position, key_object.key_size.try_into()?, key_object.value_hash, value_position));
+            index.push(
+                (*key_hash, key_position, key_object.key_size.try_into()?, value_position)
+            );
 
             key_position += 8 + key_object.key_size as u64;
 
@@ -71,49 +73,70 @@ impl<'a,K,V> Store<K,V> {
 
         let bloom_filter_bytes: Vec<u8> = (&bloom_filter).into();
 
-        let key_count = self.cache.len() as u64;
+        let key_count = self.keys.len() as u64;
 
         let index_position = TABLE_HEADER_SIZE + bloom_filter_bytes.len() as u64;
 
-        let key_data_position = index_position + (key_count * KEY_INDEX_SIZE);
+        let index_size = key_count * KEY_INDEX_SIZE;
 
-        value_data_offset += key_data_position;
+        let keys_position = index_position + index_size;
+
+        let values_position = keys_position + keys_size;
         
-        table_file.write_all(&[1u8])?;
-        table_file.write_all(&key_count.to_be_bytes())?;
-        table_file.write_all(&index_position.to_be_bytes())?;
-        table_file.write_all(&key_data_position.to_be_bytes())?;
-        table_file.write_all(&bloom_filter_bytes)?;
+        flush_file.write_all(&[1u8])?;
 
-        for  (i_key_hash, mut i_key_position, i_key_size, i_value_hash, mut i_value_position) in &mut index {
-            table_file.write_all(i_key_hash)?;
-            i_key_position += key_data_position;
-            table_file.write_all(&i_key_position.to_be_bytes())?;
-            table_file.write_all(&i_key_size.to_be_bytes())?;
-            table_file.write_all(i_value_hash)?;
-            i_value_position += value_data_offset;
-            table_file.write_all(&i_value_position.to_be_bytes())?; 
+        flush_file.write_all(&key_count.to_le_bytes())?;
+
+        flush_file.write_all(&index_position.to_le_bytes())?;
+
+        flush_file.write_all(&keys_position.to_le_bytes())?;
+
+        flush_file.write_all(&bloom_filter_bytes)?;
+
+        for  (key_hash, key_position, key_size, value_position) in index {
+            
+            flush_file.write_all(&key_hash)?;
+
+            flush_file.write_all(&(key_position + keys_position).to_le_bytes())?;
+
+            flush_file.write_all(&key_size.to_le_bytes())?;
+
+            flush_file.write_all(&(values_position + value_position).to_le_bytes())?;
+
         }
 
-        for (_, cache_object) in &self.cache {
-            let mut key_bytes = vec![0u8; cache_object.key_size];
-            self.logs_file.seek(SeekFrom::Start(cache_object.key_log_position))?;
+        for (_, key_object) in &self.keys {
+
+            let mut key_bytes = vec![0u8; key_object.key_size];
+
+            self.logs_file.seek(SeekFrom::Start(key_object.key_log_position))?;
+
             self.logs_file.read_exact(&mut key_bytes)?;
-            table_file.write_all(&key_bytes)?;
+
+            flush_file.write_all(&key_bytes)?;
+
         }
 
         for value_hash in value_data_order {
+
             match self.values.get(&value_hash) {
+
                 Some(value_object) => {
+
                     let mut value_bytes = vec![0u8; value_object.value_size];
+
                     self.logs_file.seek(SeekFrom::Start(value_object.value_log_position))?;
+
                     self.logs_file.read_exact(&mut value_bytes)?;
-                    let value_size_u64: u64 = value_object.value_size.try_into()?;
-                    table_file.write_all(&value_size_u64.to_be_bytes())?;
-                    table_file.write_all(&value_bytes)?;
+
+                    flush_file.write_all(&value_bytes)?;
+                
                 },
+
                 None => (),
+
             }
+
         }
 
         let table = Table {
@@ -121,9 +144,9 @@ impl<'a,K,V> Store<K,V> {
             level: 1_u8,
             name: format!("{}", current_time),
             key_count,
-            file_size: table_file.metadata()?.len(),
+            file_size: flush_file.metadata()?.len(),
             index_position,
-            key_data_position
+            keys_position
         };
 
         self.tables.push(table);
@@ -134,9 +157,9 @@ impl<'a,K,V> Store<K,V> {
 
         let graves_path = Path::new(&graves_path_str);
 
-        if graves_path.is_file() {
+        if !self.graves.is_empty() {
 
-            let mut graves_file = File::open(graves_path)?;
+            let mut graves_file = OpenOptions::new().append(true).create(true).open(graves_path)?;
 
             graves_file.set_len(0)?;
 

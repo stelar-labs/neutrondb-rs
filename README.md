@@ -13,20 +13,25 @@ NeutronDB is a log-structured merge-tree key-value store for any implemented dat
 - Version (1 Byte)
 - Key Count (8 Bytes)
 - Index Position (8 Bytes)
-- Key Data Position (8 Bytes)
+- Keys Position (8 Bytes)
 - Bloom Filter (Dynamic Size)
 - Index Data (Dynamic Size)
-- Key Data (Dynamic Size)
-- Value Data (Dynamic Size)
+- Keys Data (Dynamic Size)
+- Values Data (Dynamic Size)
 
 ## Features
+
+- Key-Value Store with Put, Get & Delete
+- Supports Rust Native Types
+- Supports any Type that implements IntoBytes & TryFromBytes
+- Supports 64bit Data Locations within Tables, Max ~18 Exabyte Files
 
 ## Usage
 
 ### Installation
 
-- From [Crates](https://crates.io/) by running `cargo add neutrondb`
-- From Crates by adding `neutrondb = "6.0.0"` to `Cargo.toml` under `[dependencies]`
+<!-- - From [Crates](https://crates.io/) by running `cargo add neutrondb` -->
+- Using Crates by adding `neutrondb = "6.0.0"` to `Cargo.toml` under `[dependencies]`
 
 ### New
 
@@ -61,15 +66,22 @@ NeutronDB is a log-structured merge-tree key-value store for any implemented dat
 - 📥 store.puts(&[(K,V)])
 - 📤 store.gets(&[K]) -> BTreeMap<K,V>
 - 🗺️ store.map: (Fn: (K,V) -> T) -> Vec<T>
-- 🧠 store.fold: accumulator, Fn: (K,V) -> acc -> acc
+- 🧠 store.fold: acc, Fn: (K,V) -> acc -> acc
 - 🔍 store.any: Fn: (K,V) -> bool -> V
 - 🗄 store.all: Fn: (K,V) -> bool -> BTreeMap<K,V>
 - 📸 snapshots
 
 ## Scaling
 
-- supports 64bit data positions
+- Supports 64bit Data Positions
 - Use ZFS
+
+## Memory
+
+NeuronDB requires memory:
+- General: Graves(Key Hashes of deleted items)
+- Cache: Key Hashes & Values
+- Flushing & Compaction: New Table Index & Data Locaions
 
 ## License
 
