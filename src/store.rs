@@ -5,3 +5,4 @@ pub mod flush;
 pub mod get;
 pub mod new;
 pub mod put;
+pub mod map;
